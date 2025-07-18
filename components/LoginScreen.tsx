@@ -217,6 +217,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 'auto',
+    marginBottom: 32, // 2rem in px
   },
   signUpText: {
     fontSize: 16,
