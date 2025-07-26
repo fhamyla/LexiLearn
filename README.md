@@ -66,19 +66,6 @@ This will:
 
 3. **The app will load** on your device and automatically reload when you make changes
 
-## 🛠️ Project Structure
-
-```
-LexiLearn/
-├── App.tsx                 # Main app component
-├── components/
-│   └── LoginScreen.tsx     # Login screen component
-├── assets/                 # Images and static files
-├── package.json           # Dependencies and scripts
-├── tsconfig.json          # TypeScript configuration
-└── README.md              # This file
-```
-
 ## 📱 Features
 
 - **Modern UI Design**: Clean, accessible login interface
