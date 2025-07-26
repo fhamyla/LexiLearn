@@ -1,6 +1,6 @@
 # LexiLearn - React Native App
 
-A modern React Native learning application built with Expo, featuring a beautiful login screen with TypeScript support.
+A modern React Native learning application built with Expo.
 
 ## 🚀 Quick Start
 
@@ -66,15 +66,6 @@ This will:
 
 3. **The app will load** on your device and automatically reload when you make changes
 
-## 📱 Features
-
-- **Modern UI Design**: Clean, accessible login interface
-- **TypeScript Support**: Full type safety and IntelliSense
-- **Responsive Layout**: Works on all screen sizes
-- **Form Validation**: Basic email/password validation
-- **Password Visibility Toggle**: Show/hide password functionality
-- **Keyboard Handling**: Proper keyboard avoidance
-
 ## 🔧 Configuration
 
 ### TypeScript Configuration
@@ -138,7 +129,6 @@ Key dependencies include:
 - The app uses **Expo Go** for development and testing
 - **Tunnel mode** is recommended for testing on physical devices
 - All components are written in **TypeScript** for better development experience
-- The login screen includes placeholder functions for authentication (to be implemented)
 
 ## 🤝 Contributing
 
