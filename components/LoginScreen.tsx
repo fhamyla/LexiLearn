@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const LoginScreen: React.FC = () => {
+const LoginScreen: React.FC<{ onSignUp?: () => void }> = ({ onSignUp }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +31,11 @@ const LoginScreen: React.FC = () => {
   };
 
   const handleSignUp = () => {
-    Alert.alert('Sign Up', 'Sign up functionality will be implemented here');
+    if (onSignUp) {
+      onSignUp();
+    } else {
+      Alert.alert('Sign Up', 'Sign up functionality will be implemented here');
+    }
   };
 
   return (
