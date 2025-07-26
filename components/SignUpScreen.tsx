@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const nameRegex = /^[A-Za-z]*$/;
 
 const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [email, setEmail] = useState('');
@@ -14,6 +15,25 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [childAge, setChildAge] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [timer, setTimer] = useState(0);
+  const [otpError, setOtpError] = useState('');
+  const [firstNameError, setFirstNameError] = useState('');
+  const [middleNameError, setMiddleNameError] = useState('');
+  const [lastNameError, setLastNameError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (timer > 0) {
+      timerRef.current = setTimeout(() => setTimer(timer - 1), 1000);
+    } else if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [timer]);
 
   const handleSendOtp = () => {
     if (!emailRegex.test(email)) {
@@ -22,6 +42,7 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     }
     setEmailError('');
     setOtpSent(true);
+    setTimer(60);
     Keyboard.dismiss();
     // No backend logic yet
   };
@@ -30,12 +51,44 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     setEmail(text);
     setEmailError('');
     setOtpSent(false);
+    setTimer(0);
+  };
+
+  const handleOtpChange = (text: string) => {
+    // Only allow 6 digits
+    const sanitized = text.replace(/[^0-9]/g, '').slice(0, 6);
+    setOtp(sanitized);
+    if (sanitized.length > 0 && sanitized.length < 6) {
+      setOtpError('OTP must be 6 digits');
+    } else {
+      setOtpError('');
+    }
   };
 
   const handleChildAgeChange = (text: string) => {
     // Only allow up to 2 digits, no letters or special characters
     const sanitized = text.replace(/[^0-9]/g, '').slice(0, 2);
     setChildAge(sanitized);
+  };
+
+  const handleNameChange = (setter: (v: string) => void, setError: (v: string) => void) => (text: string) => {
+    if (text === '' || nameRegex.test(text)) {
+      setter(text);
+      setError('');
+    } else {
+      setError('Only alphabetic characters are allowed');
+    }
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (text.length < 7) {
+      setPasswordError('Password must be at least 7 characters');
+    } else if (text.length > 20) {
+      setPasswordError('Password must be at most 20 characters');
+    } else {
+      setPasswordError('');
+    }
   };
 
   const handleSignUp = () => {
@@ -64,33 +117,36 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
         <View style={styles.otpRow}>
           <Button
-            title={otpSent ? "Resend OTP" : "Send OTP"}
+            title={timer > 0 ? `Resend OTP (${timer}s)` : otpSent ? "Resend OTP" : "Send OTP"}
             onPress={handleSendOtp}
             color="#4F8EF7"
-            disabled={!email || !emailRegex.test(email)}
+            disabled={!email || !emailRegex.test(email) || timer > 0}
           />
         </View>
         {otpSent && (
           <>
             <Text style={styles.label}>OTP *</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, otpError && styles.inputError]}
               placeholder="Enter OTP"
               value={otp}
-              onChangeText={setOtp}
+              onChangeText={handleOtpChange}
               keyboardType="numeric"
               maxLength={6}
             />
+            {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
           </>
         )}
         <Text style={styles.label}>Password *</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, passwordError && styles.inputError]}
           placeholder="Enter password"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={handlePasswordChange}
           secureTextEntry
+          maxLength={20}
         />
+        {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
         <Text style={styles.label}>Confirm Password *</Text>
         <TextInput
           style={styles.input}
@@ -101,29 +157,32 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         />
         <Text style={styles.label}>First Name *</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, firstNameError && styles.inputError]}
           placeholder="Enter first name"
           value={firstName}
-          onChangeText={setFirstName}
+          onChangeText={handleNameChange(setFirstName, setFirstNameError)}
         />
+        {firstNameError ? <Text style={styles.errorText}>{firstNameError}</Text> : null}
         <Text style={styles.label}>Middle Name (optional)</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, middleNameError && styles.inputError]}
           placeholder="Enter middle name (optional)"
           value={middleName}
-          onChangeText={setMiddleName}
+          onChangeText={handleNameChange(setMiddleName, setMiddleNameError)}
         />
+        {middleNameError ? <Text style={styles.errorText}>{middleNameError}</Text> : null}
         <Text style={styles.label}>Last Name *</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, lastNameError && styles.inputError]}
           placeholder="Enter last name"
           value={lastName}
-          onChangeText={setLastName}
+          onChangeText={handleNameChange(setLastName, setLastNameError)}
         />
+        {lastNameError ? <Text style={styles.errorText}>{lastNameError}</Text> : null}
         <Text style={styles.label}>Children's Age *</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter age (2 digits)"
+          placeholder="Enter age"
           value={childAge}
           onChangeText={handleChildAgeChange}
           keyboardType="numeric"
@@ -223,6 +282,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 6,
     backgroundColor: '#E0E6ED',
+    marginTop: 24, // Added space at the top
   },
   backButtonText: {
     fontSize: 16,
