@@ -140,6 +140,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 48,
+    marginTop: 40, // Added extra space at the top
   },
   title: {
     fontSize: 28,
