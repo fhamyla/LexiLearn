@@ -25,6 +25,7 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [childName, setChildName] = useState('');
   const [childNameError, setChildNameError] = useState('');
   const [severity, setSeverity] = useState('');
+  const [userType, setUserType] = useState('guardian'); // 'guardian' or 'teacher'
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -108,6 +109,17 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       )}
       <View style={styles.card}>
         <Text style={styles.title}>Sign Up</Text>
+        <Text style={styles.label}>Sign up as *</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={userType}
+            onValueChange={setUserType}
+            style={styles.picker}
+          >
+            <Picker.Item label="Guardian/Parent" value="guardian" />
+            <Picker.Item label="Teacher/Moderator" value="teacher" />
+          </Picker>
+        </View>
         <Text style={styles.label}>Email *</Text>
         <TextInput
           style={[styles.input, emailError && styles.inputError]}
@@ -118,6 +130,9 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           autoCapitalize="none"
           autoCorrect={false}
         />
+        {userType === 'teacher' && (
+          <Text style={styles.infoText}>Please use your work email, not your personal email.</Text>
+        )}
         {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
         <View style={styles.otpRow}>
           <Button
@@ -183,37 +198,41 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           onChangeText={handleNameChange(setLastName, setLastNameError)}
         />
         {lastNameError ? <Text style={styles.errorText}>{lastNameError}</Text> : null}
-        <Text style={styles.label}>Children's Age *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter age"
-          value={childAge}
-          onChangeText={handleChildAgeChange}
-          keyboardType="numeric"
-          maxLength={2}
-        />
-        <Text style={styles.label}>Child's Name *</Text>
-        <TextInput
-          style={[styles.input, childNameError && styles.inputError]}
-          placeholder="Enter child's name"
-          value={childName}
-          onChangeText={handleNameChange(setChildName, setChildNameError)}
-        />
-        {childNameError ? <Text style={styles.errorText}>{childNameError}</Text> : null}
-        <Text style={styles.label}>Severity *</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={severity}
-            onValueChange={setSeverity}
-            style={styles.picker}
-          >
-            <Picker.Item label="Select severity" value="" />
-            <Picker.Item label="Mild" value="mild" />
-            <Picker.Item label="Moderate" value="moderate" />
-            <Picker.Item label="Severe" value="severe" />
-            <Picker.Item label="Profound" value="profound" />
-          </Picker>
-        </View>
+        {userType === 'guardian' && (
+          <>
+            <Text style={styles.label}>Children's Age *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter age"
+              value={childAge}
+              onChangeText={handleChildAgeChange}
+              keyboardType="numeric"
+              maxLength={2}
+            />
+            <Text style={styles.label}>Child's Name *</Text>
+            <TextInput
+              style={[styles.input, childNameError && styles.inputError]}
+              placeholder="Enter child's name"
+              value={childName}
+              onChangeText={handleNameChange(setChildName, setChildNameError)}
+            />
+            {childNameError ? <Text style={styles.errorText}>{childNameError}</Text> : null}
+            <Text style={styles.label}>Severity *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={severity}
+                onValueChange={setSeverity}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select severity" value="" />
+                <Picker.Item label="Mild" value="mild" />
+                <Picker.Item label="Moderate" value="moderate" />
+                <Picker.Item label="Severe" value="severe" />
+                <Picker.Item label="Profound" value="profound" />
+              </Picker>
+            </View>
+          </>
+        )}
         <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
           <Text style={styles.signUpButtonText}>Sign Up</Text>
         </TouchableOpacity>
@@ -326,6 +345,12 @@ const styles = StyleSheet.create({
   picker: {
     height: 44,
     width: '100%',
+  },
+  infoText: {
+    color: '#4F8EF7',
+    fontSize: 13,
+    marginBottom: 4,
+    marginTop: 2,
   },
 });
 
