@@ -1,7 +1,6 @@
 import { initializeApp } from '@firebase/app';
 import { getAuth } from '@firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs } from '@firebase/firestore';
-import { getFunctions, httpsCallable } from '@firebase/functions';
 
 const firebaseConfig = {
   apiKey: "YOUR_NEW_API_KEY_HERE",
@@ -16,7 +15,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const functions = getFunctions(app);
 
 // Email OTP functions
 export const sendEmailOTP = async (email) => {
@@ -32,14 +30,18 @@ export const sendEmailOTP = async (email) => {
       expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
     });
 
-    // Call the Cloud Function to send email
-    const sendOtpEmail = httpsCallable(functions, 'sendOtpEmail');
-    const result = await sendOtpEmail({ email, otp });
-    
-    if (result.data.success) {
+    // Call the Vercel backend to send email
+    const response = await fetch('https://vercel-backend-one-lime.vercel.app/api/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    });
+    const result = await response.json();
+
+    if (result.success) {
       return { success: true, message: 'OTP sent to your email' };
     } else {
-      return { success: false, message: result.data.message };
+      return { success: false, message: result.message };
     }
   } catch (error) {
     console.error('Error sending OTP:', error);
