@@ -1,0 +1,9 @@
+{
+  "name": "vercel-backend",
+  "version": "1.0.0",
+  "main": "api/send-otp.js",
+  "type": "commonjs",
+  "dependencies": {
+    "nodemailer": "^6.9.11"
+  }
+} 
