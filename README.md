@@ -1,6 +1,6 @@
 # LexiLearn - React Native App
 
-A modern React Native learning application built with Expo and Firebase, featuring user authentication, admin dashboard, and email OTP verification.
+A modern React Native learning application built with Expo and Firebase.
 
 ## 🚀 Quick Start
 
@@ -103,8 +103,8 @@ A modern React Native learning application built with Expo and Firebase, featuri
    - Fields:
      ```json
      {
-       "email": "lexiadmin",
-       "password": "adminlexi"
+       "email": "createyourownadmin",
+       "password": "createyourownpassword"
      }
      ```
 
@@ -135,8 +135,8 @@ service cloud.firestore {
 ## 👤 Admin Access
 
 ### Admin Login
-- **Email**: `lexiadmin`
-- **Password**: `adminlexi`
+- **Email**: `createyourownadmin`
+- **Password**: `createyourownpassword`
 
 ### Admin Features
 - Approve/reject teacher/moderator accounts
