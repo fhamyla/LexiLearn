@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const LoginScreen: React.FC<{ onSignUp?: () => void }> = ({ onSignUp }) => {
+const LoginScreen: React.FC<{ onSignUp?: () => void; onAdminLogin?: () => void }> = ({ onSignUp, onAdminLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +21,12 @@ const LoginScreen: React.FC<{ onSignUp?: () => void }> = ({ onSignUp }) => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
+    }
+    if (email === 'lexiadmin' && password === 'adminlexi') {
+      if (onAdminLogin) {
+        onAdminLogin();
+        return;
+      }
     }
     // TODO: Implement actual login logic
     Alert.alert('Success', 'Login functionality will be implemented here');
