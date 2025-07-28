@@ -1,0 +1,141 @@
+import { initializeApp } from '@firebase/app';
+import { getAuth } from '@firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs } from '@firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAw0cZVU6mfpIB-eiHhXRYpk0wrT6QU5zU",
+  authDomain: "lexilearn-4ee5b.firebaseapp.com",
+  projectId: "lexilearn-4ee5b",
+  storageBucket: "lexilearn-4ee5b.firebasestorage.app",
+  messagingSenderId: "518977127187",
+  appId: "1:518977127187:web:6106d24680cac2860c90e6",
+  measurementId: "G-HK6C8BB2HD"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Email OTP functions
+export const sendEmailOTP = async (email) => {
+  try {
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store OTP in Firestore with expiration (5 minutes)
+    const otpRef = doc(db, 'otps', email);
+    await setDoc(otpRef, {
+      otp,
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+    });
+
+    // For development/testing, we'll just return success
+    // In production, you would integrate with a proper email service
+    console.log(`OTP for ${email}: ${otp}`);
+    
+    // TODO: For real email sending in APK, you can:
+    // 1. Use Firebase Functions (recommended for production)
+    // 2. Use a backend API with nodemailer
+    // 3. Use services like SendGrid, Mailgun with proper API integration
+    // 4. For now, the OTP is logged to console for testing
+    
+    return { success: true, message: 'OTP sent to your email' };
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    return { success: false, message: 'Failed to send OTP' };
+  }
+};
+
+export const verifyEmailOTP = async (email, otp) => {
+  try {
+    const otpRef = doc(db, 'otps', email);
+    const otpDoc = await getDoc(otpRef);
+    
+    if (!otpDoc.exists()) {
+      return { success: false, message: 'OTP not found' };
+    }
+
+    const otpData = otpDoc.data();
+    const now = new Date();
+    
+    if (now > otpData.expiresAt.toDate()) {
+      return { success: false, message: 'OTP has expired' };
+    }
+
+    if (otpData.otp !== otp) {
+      return { success: false, message: 'Invalid OTP' };
+    }
+
+    // Delete the OTP after successful verification
+    await setDoc(otpRef, { used: true });
+    
+    return { success: true, message: 'OTP verified successfully' };
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    return { success: false, message: 'Failed to verify OTP' };
+  }
+};
+
+// Admin authentication
+export const checkAdminCredentials = async (email, password) => {
+  try {
+    const adminRef = doc(db, 'admins', 'main');
+    const adminDoc = await getDoc(adminRef);
+    
+    if (!adminDoc.exists()) {
+      return { success: false, message: 'Admin not found' };
+    }
+
+    const adminData = adminDoc.data();
+    if (adminData.email === email && adminData.password === password) {
+      return { success: true, message: 'Admin login successful' };
+    }
+
+    return { success: false, message: 'Invalid credentials' };
+  } catch (error) {
+    console.error('Error checking admin credentials:', error);
+    return { success: false, message: 'Failed to verify admin credentials' };
+  }
+};
+
+// User management functions
+export const createUser = async (userData) => {
+  try {
+    const userRef = doc(db, 'users', userData.email);
+    await setDoc(userRef, {
+      ...userData,
+      createdAt: new Date(),
+      status: userData.userType === 'teacher' ? 'pending' : 'active',
+    });
+    return { success: true, message: 'User created successfully' };
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return { success: false, message: 'Failed to create user' };
+  }
+};
+
+export const getPendingTeachers = async () => {
+  try {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('userType', '==', 'teacher'), where('status', '==', 'pending'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error('Error getting pending teachers:', error);
+    return [];
+  }
+};
+
+export const getAllUsers = async () => {
+  try {
+    const usersRef = collection(db, 'users');
+    const querySnapshot = await getDocs(usersRef);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error('Error getting all users:', error);
+    return [];
+  }
+};
+
+export { auth, db }; 

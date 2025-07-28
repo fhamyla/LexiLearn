@@ -11,25 +11,38 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { checkAdminCredentials } from '../firebase';
 
 const LoginScreen: React.FC<{ onSignUp?: () => void; onAdminLogin?: () => void }> = ({ onSignUp, onAdminLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    if (email === 'lexiadmin' && password === 'adminlexi') {
-      if (onAdminLogin) {
-        onAdminLogin();
-        return;
+
+    setIsLoading(true);
+    try {
+      // Check if it's admin login
+      const adminResult = await checkAdminCredentials(email, password);
+      if (adminResult.success) {
+        if (onAdminLogin) {
+          onAdminLogin();
+          return;
+        }
       }
+
+      // TODO: Implement regular user login logic
+      Alert.alert('Success', 'Login functionality will be implemented here');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to login. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    // TODO: Implement actual login logic
-    Alert.alert('Success', 'Login functionality will be implemented here');
   };
 
   const handleForgotPassword = () => {

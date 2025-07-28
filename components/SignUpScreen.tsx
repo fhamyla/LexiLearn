@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { sendEmailOTP, verifyEmailOTP, createUser } from '../firebase';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const nameRegex = /^[A-Za-z]*$/;
@@ -40,7 +41,7 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     };
   }, [timer]);
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (!emailRegex.test(email)) {
       setEmailError('Please enter a valid email address');
       return;
@@ -49,7 +50,21 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     setOtpSent(true);
     setTimer(60);
     Keyboard.dismiss();
-    // No backend logic yet
+    
+    try {
+      const result = await sendEmailOTP(email);
+      if (result.success) {
+        Alert.alert('Success', 'OTP sent to your email');
+      } else {
+        Alert.alert('Error', result.message);
+        setOtpSent(false);
+        setTimer(0);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send OTP. Please try again.');
+      setOtpSent(false);
+      setTimer(0);
+    }
   };
 
   const handleEmailChange = (text: string) => {
@@ -96,8 +111,61 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     }
   };
 
-  const handleSignUp = () => {
-    // No backend logic yet
+  const handleSignUp = async () => {
+    // Validate required fields
+    if (!email || !password || !confirmPassword || !firstName || !lastName) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (userType === 'guardian' && (!childAge || !childName || !severity)) {
+      Alert.alert('Error', 'Please fill in all child information');
+      return;
+    }
+
+    if (!otpSent || !otp) {
+      Alert.alert('Error', 'Please verify your email with OTP');
+      return;
+    }
+
+    try {
+      // Verify OTP
+      const otpResult = await verifyEmailOTP(email, otp);
+      if (!otpResult.success) {
+        Alert.alert('Error', otpResult.message);
+        return;
+      }
+
+      // Create user
+      const userData = {
+        email,
+        password,
+        firstName,
+        middleName,
+        lastName,
+        userType,
+        ...(userType === 'guardian' && {
+          childAge: parseInt(childAge),
+          childName,
+          severity,
+        }),
+      };
+
+      const createResult = await createUser(userData);
+      if (createResult.success) {
+        Alert.alert('Success', 'Account created successfully!');
+        // TODO: Navigate to appropriate screen based on user type
+      } else {
+        Alert.alert('Error', createResult.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create account. Please try again.');
+    }
   };
 
   return (
