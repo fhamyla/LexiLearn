@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const nameRegex = /^[A-Za-z]*$/;
@@ -21,6 +22,9 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [middleNameError, setMiddleNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [childName, setChildName] = useState('');
+  const [childNameError, setChildNameError] = useState('');
+  const [severity, setSeverity] = useState('');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -188,6 +192,28 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           keyboardType="numeric"
           maxLength={2}
         />
+        <Text style={styles.label}>Child's Name *</Text>
+        <TextInput
+          style={[styles.input, childNameError && styles.inputError]}
+          placeholder="Enter child's name"
+          value={childName}
+          onChangeText={handleNameChange(setChildName, setChildNameError)}
+        />
+        {childNameError ? <Text style={styles.errorText}>{childNameError}</Text> : null}
+        <Text style={styles.label}>Severity *</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={severity}
+            onValueChange={setSeverity}
+            style={styles.picker}
+          >
+            <Picker.Item label="Select severity" value="" />
+            <Picker.Item label="Mild" value="mild" />
+            <Picker.Item label="Moderate" value="moderate" />
+            <Picker.Item label="Severe" value="severe" />
+            <Picker.Item label="Profound" value="profound" />
+          </Picker>
+        </View>
         <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
           <Text style={styles.signUpButtonText}>Sign Up</Text>
         </TouchableOpacity>
@@ -288,6 +314,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#4F8EF7',
     fontWeight: '500',
+  },
+  pickerContainer: {
+    borderWidth: 1.5,
+    borderColor: '#E0E6ED',
+    borderRadius: 8,
+    backgroundColor: '#F7FAFC',
+    marginBottom: 2,
+    marginTop: 2,
+  },
+  picker: {
+    height: 44,
+    width: '100%',
   },
 });
 
