@@ -1,9 +1,10 @@
 import { initializeApp } from '@firebase/app';
 import { getAuth } from '@firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs } from '@firebase/firestore';
+import { getFunctions, httpsCallable } from '@firebase/functions';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAw0cZVU6mfpIB-eiHhXRYpk0wrT6QU5zU",
+  apiKey: "YOUR_NEW_API_KEY_HERE",
   authDomain: "lexilearn-4ee5b.firebaseapp.com",
   projectId: "lexilearn-4ee5b",
   storageBucket: "lexilearn-4ee5b.firebasestorage.app",
@@ -15,6 +16,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functions = getFunctions(app);
 
 // Email OTP functions
 export const sendEmailOTP = async (email) => {
@@ -30,17 +32,15 @@ export const sendEmailOTP = async (email) => {
       expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
     });
 
-    // For development/testing, we'll just return success
-    // In production, you would integrate with a proper email service
-    console.log(`OTP for ${email}: ${otp}`);
+    // Call the Cloud Function to send email
+    const sendOtpEmail = httpsCallable(functions, 'sendOtpEmail');
+    const result = await sendOtpEmail({ email, otp });
     
-    // TODO: For real email sending in APK, you can:
-    // 1. Use Firebase Functions (recommended for production)
-    // 2. Use a backend API with nodemailer
-    // 3. Use services like SendGrid, Mailgun with proper API integration
-    // 4. For now, the OTP is logged to console for testing
-    
-    return { success: true, message: 'OTP sent to your email' };
+    if (result.data.success) {
+      return { success: true, message: 'OTP sent to your email' };
+    } else {
+      return { success: false, message: result.data.message };
+    }
   } catch (error) {
     console.error('Error sending OTP:', error);
     return { success: false, message: 'Failed to send OTP' };
