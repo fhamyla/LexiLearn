@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { sendEmailOTP, verifyEmailOTP, createUser } from '../firebase';
+import { sendEmailOTP, verifyEmailOTP, createUser, checkEmailExists } from '../firebase';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const nameRegex = /^[A-Za-z]*$/;
@@ -47,11 +47,19 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       return;
     }
     setEmailError('');
-    setOtpSent(true);
-    setTimer(60);
     Keyboard.dismiss();
     
     try {
+      // Check if email already exists
+      const emailExists = await checkEmailExists(email);
+      if (emailExists) {
+        setEmailError('An account with this email already exists. Please use a different email or try signing in.');
+        return;
+      }
+      
+      setOtpSent(true);
+      setTimer(60);
+      
       const result = await sendEmailOTP(email);
       if (result.success) {
         Alert.alert('Success', 'OTP sent to your email');
@@ -72,6 +80,7 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     setEmailError('');
     setOtpSent(false);
     setTimer(0);
+    setOtp('');
   };
 
   const handleOtpChange = (text: string) => {
@@ -111,25 +120,88 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     }
   };
 
+  // Helper function to check if a field is required but empty
+  const isFieldRequired = (value: string, fieldName: string) => {
+    return !value && fieldName !== 'middleName'; // middleName is optional
+  };
+
   const handleSignUp = async () => {
+    // Clear previous errors
+    setEmailError('');
+    setPasswordError('');
+    setFirstNameError('');
+    setLastNameError('');
+    setChildNameError('');
+    
+    let hasErrors = false;
+    const missingFields = [];
+
     // Validate required fields
-    if (!email || !password || !confirmPassword || !firstName || !lastName) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
+    if (!email) {
+      setEmailError('Email is required');
+      missingFields.push('Email');
+      hasErrors = true;
+    } else if (!emailRegex.test(email)) {
+      setEmailError('Please enter a valid email address');
+      hasErrors = true;
     }
 
-    if (password !== confirmPassword) {
+    if (!password) {
+      setPasswordError('Password is required');
+      missingFields.push('Password');
+      hasErrors = true;
+    } else if (password.length < 7) {
+      setPasswordError('Password must be at least 7 characters');
+      hasErrors = true;
+    }
+
+    if (!confirmPassword) {
+      missingFields.push('Confirm Password');
+      hasErrors = true;
+    } else if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
 
-    if (userType === 'guardian' && (!childAge || !childName || !severity)) {
-      Alert.alert('Error', 'Please fill in all child information');
-      return;
+    if (!firstName) {
+      setFirstNameError('First name is required');
+      missingFields.push('First Name');
+      hasErrors = true;
+    }
+
+    if (!lastName) {
+      setLastNameError('Last name is required');
+      missingFields.push('Last Name');
+      hasErrors = true;
+    }
+
+    // Validate guardian-specific fields
+    if (userType === 'guardian') {
+      if (!childAge) {
+        missingFields.push('Child Age');
+        hasErrors = true;
+      }
+      if (!childName) {
+        setChildNameError('Child name is required');
+        missingFields.push('Child Name');
+        hasErrors = true;
+      }
+      if (!severity) {
+        missingFields.push('Severity');
+        hasErrors = true;
+      }
     }
 
     if (!otpSent || !otp) {
       Alert.alert('Error', 'Please verify your email with OTP');
+      return;
+    }
+
+    if (hasErrors) {
+      Alert.alert(
+        'Required Fields Missing', 
+        `Please fill in the following required fields:\n\n${missingFields.join('\n')}`
+      );
       return;
     }
 
@@ -161,7 +233,11 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         Alert.alert('Success', 'Account created successfully!');
         // TODO: Navigate to appropriate screen based on user type
       } else {
-        Alert.alert('Error', createResult.message);
+        if (createResult.message.includes('already exists')) {
+          setEmailError(createResult.message);
+        } else {
+          Alert.alert('Error', createResult.message);
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to create account. Please try again.');
@@ -177,6 +253,7 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       )}
       <View style={styles.card}>
         <Text style={styles.title}>Sign Up</Text>
+        <Text style={styles.requiredNote}>* Required fields are marked with an asterisk</Text>
         <Text style={styles.label}>Sign up as *</Text>
         <View style={styles.pickerContainer}>
           <Picker
@@ -190,7 +267,11 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         </View>
         <Text style={styles.label}>Email *</Text>
         <TextInput
-          style={[styles.input, emailError && styles.inputError]}
+          style={[
+            styles.input, 
+            emailError && styles.inputError,
+            isFieldRequired(email, 'email') && !emailError && styles.inputRequired
+          ]}
           placeholder="Enter your email"
           value={email}
           onChangeText={handleEmailChange}
@@ -201,13 +282,20 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         {userType === 'teacher' && (
           <Text style={styles.infoText}>Please use your work email, not your personal email.</Text>
         )}
-        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+        {emailError ? (
+          <Text style={[
+            styles.errorText, 
+            emailError.includes('already exists') && styles.existingEmailError
+          ]}>
+            {emailError}
+          </Text>
+        ) : null}
         <View style={styles.otpRow}>
           <Button
             title={timer > 0 ? `Resend OTP (${timer}s)` : otpSent ? "Resend OTP" : "Send OTP"}
             onPress={handleSendOtp}
             color="#4F8EF7"
-            disabled={!email || !emailRegex.test(email) || timer > 0}
+            disabled={!email || !emailRegex.test(email) || timer > 0 || emailError.includes('already exists')}
           />
         </View>
         {otpSent && (
@@ -226,7 +314,11 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         )}
         <Text style={styles.label}>Password *</Text>
         <TextInput
-          style={[styles.input, passwordError && styles.inputError]}
+          style={[
+            styles.input, 
+            passwordError && styles.inputError,
+            isFieldRequired(password, 'password') && !passwordError && styles.inputRequired
+          ]}
           placeholder="Enter password"
           value={password}
           onChangeText={handlePasswordChange}
@@ -236,7 +328,10 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
         <Text style={styles.label}>Confirm Password *</Text>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            isFieldRequired(confirmPassword, 'confirmPassword') && styles.inputRequired
+          ]}
           placeholder="Confirm password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
@@ -244,7 +339,11 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         />
         <Text style={styles.label}>First Name *</Text>
         <TextInput
-          style={[styles.input, firstNameError && styles.inputError]}
+          style={[
+            styles.input, 
+            firstNameError && styles.inputError,
+            isFieldRequired(firstName, 'firstName') && !firstNameError && styles.inputRequired
+          ]}
           placeholder="Enter first name"
           value={firstName}
           onChangeText={handleNameChange(setFirstName, setFirstNameError)}
@@ -260,7 +359,11 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         {middleNameError ? <Text style={styles.errorText}>{middleNameError}</Text> : null}
         <Text style={styles.label}>Last Name *</Text>
         <TextInput
-          style={[styles.input, lastNameError && styles.inputError]}
+          style={[
+            styles.input, 
+            lastNameError && styles.inputError,
+            isFieldRequired(lastName, 'lastName') && !lastNameError && styles.inputRequired
+          ]}
           placeholder="Enter last name"
           value={lastName}
           onChangeText={handleNameChange(setLastName, setLastNameError)}
@@ -270,7 +373,10 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           <>
             <Text style={styles.label}>Children's Age *</Text>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                isFieldRequired(childAge, 'childAge') && styles.inputRequired
+              ]}
               placeholder="Enter age"
               value={childAge}
               onChangeText={handleChildAgeChange}
@@ -279,14 +385,21 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
             />
             <Text style={styles.label}>Child's Name *</Text>
             <TextInput
-              style={[styles.input, childNameError && styles.inputError]}
+              style={[
+                styles.input, 
+                childNameError && styles.inputError,
+                isFieldRequired(childName, 'childName') && !childNameError && styles.inputRequired
+              ]}
               placeholder="Enter child's name"
               value={childName}
               onChangeText={handleNameChange(setChildName, setChildNameError)}
             />
             {childNameError ? <Text style={styles.errorText}>{childNameError}</Text> : null}
             <Text style={styles.label}>Severity *</Text>
-            <View style={styles.pickerContainer}>
+            <View style={[
+              styles.pickerContainer,
+              isFieldRequired(severity, 'severity') && styles.inputRequired
+            ]}>
               <Picker
                 selectedValue={severity}
                 onValueChange={setSeverity}
@@ -357,11 +470,20 @@ const styles = StyleSheet.create({
     borderColor: '#FF5A5F',
     backgroundColor: '#FFF0F0',
   },
+  inputRequired: {
+    borderColor: '#FFA500',
+    backgroundColor: '#FFF8E1',
+  },
   errorText: {
     color: '#FF5A5F',
     fontSize: 13,
     marginBottom: 4,
     marginTop: 2,
+  },
+  existingEmailError: {
+    color: '#E74C3C',
+    fontSize: 14,
+    fontWeight: '500',
   },
   otpRow: {
     flexDirection: 'row',
@@ -419,6 +541,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 4,
     marginTop: 2,
+  },
+  requiredNote: {
+    color: '#666',
+    fontSize: 12,
+    marginBottom: 16,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 

@@ -79,6 +79,18 @@ export const verifyEmailOTP = async (email, otp) => {
   }
 };
 
+// Check if email already exists
+export const checkEmailExists = async (email) => {
+  try {
+    const userRef = doc(db, 'users', email);
+    const userDoc = await getDoc(userRef);
+    return userDoc.exists();
+  } catch (error) {
+    console.error('Error checking email existence:', error);
+    return false;
+  }
+};
+
 // Admin authentication
 export const checkAdminCredentials = async (email, password) => {
   try {
@@ -101,10 +113,45 @@ export const checkAdminCredentials = async (email, password) => {
   }
 };
 
+// User authentication
+export const checkUserCredentials = async (email, password) => {
+  try {
+    const userRef = doc(db, 'users', email);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return { success: false, message: 'User not found' };
+    }
+
+    const userData = userDoc.data();
+    if (userData.password === password) {
+      return { 
+        success: true, 
+        message: 'Login successful',
+        userType: userData.userType,
+        userData: userData
+      };
+    }
+
+    return { success: false, message: 'Invalid email or password' };
+  } catch (error) {
+    console.error('Error checking user credentials:', error);
+    return { success: false, message: 'Failed to verify user credentials' };
+  }
+};
+
 // User management functions
 export const createUser = async (userData) => {
   try {
+    // Check if user already exists
     const userRef = doc(db, 'users', userData.email);
+    const existingUser = await getDoc(userRef);
+    
+    if (existingUser.exists()) {
+      return { success: false, message: 'An account with this email already exists. Please use a different email or try signing in.' };
+    }
+
+    // Create new user
     await setDoc(userRef, {
       ...userData,
       createdAt: new Date(),

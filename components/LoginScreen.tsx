@@ -11,35 +11,79 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { checkAdminCredentials } from '../firebase';
+import { checkAdminCredentials, checkUserCredentials } from '../firebase';
 
-const LoginScreen: React.FC<{ onSignUp?: () => void; onAdminLogin?: () => void }> = ({ onSignUp, onAdminLogin }) => {
+const LoginScreen: React.FC<{ 
+  onSignUp?: () => void; 
+  onAdminLogin?: () => void;
+  onModeratorLogin?: () => void;
+  onUserLogin?: () => void;
+}> = ({ onSignUp, onAdminLogin, onModeratorLogin, onUserLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleLogin = async () => {
+    setErrorMessage(''); // Clear any previous errors
+    
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setErrorMessage('Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
     try {
+      console.log('Login attempt with email:', email);
+      console.log('Password length:', password.length);
+      
       // Check if it's admin login
+      console.log('Calling checkAdminCredentials...');
       const adminResult = await checkAdminCredentials(email, password);
+      console.log('Admin login result:', adminResult);
+      
       if (adminResult.success) {
+        console.log('Admin login successful, calling onAdminLogin');
         if (onAdminLogin) {
           onAdminLogin();
           return;
         }
+      } else {
+        // Admin login failed, try user login
+        console.log('Admin login failed, trying user login');
+        console.log('Calling checkUserCredentials...');
+        const userResult = await checkUserCredentials(email, password);
+        console.log('User login result:', userResult);
+        
+        if (userResult.success) {
+          console.log('User login successful, userType:', userResult.userType);
+          
+          // Route based on user type
+          if (userResult.userType === 'teacher' || userResult.userType === 'moderator') {
+            console.log('Routing to moderator dashboard');
+            if (onModeratorLogin) {
+              onModeratorLogin();
+              return;
+            }
+          } else {
+            console.log('Routing to user dashboard');
+            if (onUserLogin) {
+              onUserLogin();
+              return;
+            }
+          }
+        } else {
+          // Both admin and user login failed, show error message
+          console.log('Both login attempts failed, showing error message');
+          console.log('Error message:', userResult.message);
+          setErrorMessage(userResult.message || 'Invalid email or password');
+          return;
+        }
       }
-
-      // TODO: Implement regular user login logic
-      Alert.alert('Success', 'Login functionality will be implemented here');
     } catch (error) {
-      Alert.alert('Error', 'Failed to login. Please try again.');
+      console.error('Login error:', error);
+      setErrorMessage('Failed to login. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -118,15 +162,30 @@ const LoginScreen: React.FC<{ onSignUp?: () => void; onAdminLogin?: () => void }
               </View>
             </View>
 
+            {/* Error Message */}
+            {errorMessage ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
+
             {/* Forgot Password */}
             <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
               <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
             </TouchableOpacity>
 
             {/* Login Button */}
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Sign In</Text>
+            <TouchableOpacity 
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              <Text style={styles.loginButtonText}>
+                {isLoading ? 'Signing In...' : 'Sign In'}
+              </Text>
             </TouchableOpacity>
+
+
 
             {/* Sign Up Section */}
             <View style={styles.signUpContainer}>
@@ -230,6 +289,10 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     minHeight: 56,
   },
+  loginButtonDisabled: {
+    backgroundColor: '#BDC3C7', // Gray when disabled
+    opacity: 0.7,
+  },
   loginButtonText: {
     fontSize: 18,
     fontWeight: '600',
@@ -253,6 +316,34 @@ const styles = StyleSheet.create({
     color: '#3498DB',
     fontWeight: '600',
     lineHeight: 22,
+  },
+  testButton: {
+    backgroundColor: '#E74C3C',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+    minHeight: 48,
+  },
+  testButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    lineHeight: 20,
+  },
+  errorContainer: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
 

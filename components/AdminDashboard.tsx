@@ -20,24 +20,70 @@ interface User {
   status?: string;
 }
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
+  console.log('AdminDashboard rendered, onLogout:', !!onLogout);
   const [pendingTeachers, setPendingTeachers] = useState<Teacher[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('AdminDashboard mounted, onLogout prop:', !!onLogout);
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
-      const [teachers, users] = await Promise.all([
-        getPendingTeachers(),
-        getAllUsers(),
-      ]);
-      setPendingTeachers(teachers as Teacher[]);
-      setAllUsers(users as User[]);
+      // For now, use mock data to ensure the dashboard loads
+      const mockTeachers: Teacher[] = [
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@school.com',
+          userType: 'teacher',
+          status: 'pending',
+        },
+        {
+          id: '2',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@school.com',
+          userType: 'teacher',
+          status: 'pending',
+        },
+      ];
+
+      const mockUsers: User[] = [
+        {
+          id: '1',
+          firstName: 'Parent',
+          lastName: 'One',
+          email: 'parent1@email.com',
+          userType: 'guardian',
+          status: 'active',
+        },
+        {
+          id: '2',
+          firstName: 'Teacher',
+          lastName: 'One',
+          email: 'teacher1@school.com',
+          userType: 'teacher',
+          status: 'active',
+        },
+      ];
+
+      setPendingTeachers(mockTeachers);
+      setAllUsers(mockUsers);
+      
+      // TODO: Uncomment when Firebase is properly configured
+      // const [teachers, users] = await Promise.all([
+      //   getPendingTeachers(),
+      //   getAllUsers(),
+      // ]);
+      // setPendingTeachers(teachers as Teacher[]);
+      // setAllUsers(users as User[]);
     } catch (error) {
+      console.error('Error loading data:', error);
       Alert.alert('Error', 'Failed to load data');
     } finally {
       setLoading(false);
@@ -56,9 +102,28 @@ const AdminDashboard: React.FC = () => {
     loadData(); // Reload data
   };
 
+  const handleLogout = () => {
+    console.log('handleLogout called in AdminDashboard');
+    console.log('onLogout prop exists:', !!onLogout);
+    
+    // Direct logout without confirmation for testing
+    if (onLogout) {
+      console.log('Calling onLogout directly');
+      onLogout();
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Admin Dashboard</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Admin Dashboard</Text>
+        {onLogout && (
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Approve Moderators/Teachers</Text>
@@ -123,12 +188,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F4F8',
     alignItems: 'center',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 600,
+    marginBottom: 32,
+  },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 32,
     color: '#4F8EF7',
     textAlign: 'center',
+    flex: 1,
+  },
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   section: {
     width: '100%',
@@ -229,6 +313,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontStyle: 'italic',
   },
+
+
 });
 
 export default AdminDashboard; 
