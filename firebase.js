@@ -31,11 +31,15 @@ export const sendEmailOTP = async (email) => {
     });
 
     // Call the Vercel backend to send email
+    console.log('Attempting to call Vercel API...');
     const response = await fetch('https://vercel-backend-one-lime.vercel.app/api/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp }),
     });
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
     
     // Check if response is ok before parsing JSON
     if (!response.ok) {
