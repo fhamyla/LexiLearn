@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { getAllUsers } from '../firebase';
 
 interface Student {
   id: string;
@@ -30,28 +31,21 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
 
   const loadData = async () => {
     try {
-      // TODO: Implement actual data loading from Firebase
-      // For now, using mock data
-      const mockStudents: Student[] = [
-        {
-          id: '1',
-          firstName: 'John',
-          lastName: 'Doe',
-          childName: 'Emma',
-          childAge: 8,
-          severity: 'mild',
-          progress: 75,
-        },
-        {
-          id: '2',
-          firstName: 'Jane',
-          lastName: 'Smith',
-          childName: 'Lucas',
-          childAge: 6,
-          severity: 'moderate',
-          progress: 45,
-        },
-      ];
+      // Load real data from Firebase
+      const users = await getAllUsers();
+      
+      // Filter for guardian users and map to Student interface
+      const students: Student[] = users
+        .filter(user => user.userType === 'guardian')
+        .map(user => ({
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          childName: user.childName,
+          childAge: user.childAge,
+          severity: user.severity,
+          progress: 75, // TODO: Calculate from actual progress data
+        }));
 
       const mockContent: LearningContent[] = [
         {
@@ -77,7 +71,7 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         },
       ];
 
-      setStudents(mockStudents);
+      setStudents(students);
       setLearningContent(mockContent);
     } catch (error) {
       Alert.alert('Error', 'Failed to load data');

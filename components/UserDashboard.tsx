@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { auth, db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface ChildProgress {
   id: string;
@@ -42,16 +44,33 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
   const loadData = async () => {
     try {
-      // TODO: Implement actual data loading from Firebase
-      // For now, using mock data
-      const mockChildProgress: ChildProgress = {
-        id: '1',
-        childName: 'Emma',
-        childAge: 8,
-        severity: 'mild',
-        overallProgress: 75,
-        lastActivity: '2 hours ago',
-        currentStreak: 5,
+      // Get current user data from Firebase
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'No user logged in');
+        return;
+      }
+
+      // Get user data from Firestore
+      const userRef = doc(db, 'users', user.email);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        Alert.alert('Error', 'User data not found');
+        return;
+      }
+
+      const userData = userDoc.data();
+      
+      // Create child progress data from user data
+      const childProgress: ChildProgress = {
+        id: userData.uid || '1',
+        childName: userData.childName || 'Child',
+        childAge: userData.childAge || 0,
+        severity: userData.severity || 'mild',
+        overallProgress: 75, // TODO: Calculate from actual progress data
+        lastActivity: '2 hours ago', // TODO: Get from actual activity data
+        currentStreak: 5, // TODO: Calculate from actual streak data
       };
 
       const mockActivities: LearningActivity[] = [
@@ -99,9 +118,9 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         },
       ];
 
-      setChildProgress(mockChildProgress);
-      setRecentActivities(mockActivities);
-      setMessages(mockMessages);
+             setChildProgress(childProgress);
+       setRecentActivities(mockActivities);
+       setMessages(mockMessages);
     } catch (error) {
       Alert.alert('Error', 'Failed to load data');
     } finally {

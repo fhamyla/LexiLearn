@@ -18,6 +18,9 @@ interface User {
   email?: string;
   userType?: string;
   status?: string;
+  childName?: string;
+  childAge?: number;
+  severity?: string;
 }
 
 const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
@@ -33,55 +36,13 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
   const loadData = async () => {
     try {
-      // For now, use mock data to ensure the dashboard loads
-      const mockTeachers: Teacher[] = [
-        {
-          id: '1',
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john.doe@school.com',
-          userType: 'teacher',
-          status: 'pending',
-        },
-        {
-          id: '2',
-          firstName: 'Jane',
-          lastName: 'Smith',
-          email: 'jane.smith@school.com',
-          userType: 'teacher',
-          status: 'pending',
-        },
-      ];
-
-      const mockUsers: User[] = [
-        {
-          id: '1',
-          firstName: 'Parent',
-          lastName: 'One',
-          email: 'parent1@email.com',
-          userType: 'guardian',
-          status: 'active',
-        },
-        {
-          id: '2',
-          firstName: 'Teacher',
-          lastName: 'One',
-          email: 'teacher1@school.com',
-          userType: 'teacher',
-          status: 'active',
-        },
-      ];
-
-      setPendingTeachers(mockTeachers);
-      setAllUsers(mockUsers);
-      
-      // TODO: Uncomment when Firebase is properly configured
-      // const [teachers, users] = await Promise.all([
-      //   getPendingTeachers(),
-      //   getAllUsers(),
-      // ]);
-      // setPendingTeachers(teachers as Teacher[]);
-      // setAllUsers(users as User[]);
+      // Load real data from Firebase
+      const [teachers, users] = await Promise.all([
+        getPendingTeachers(),
+        getAllUsers(),
+      ]);
+      setPendingTeachers(teachers as Teacher[]);
+      setAllUsers(users as User[]);
     } catch (error) {
       console.error('Error loading data:', error);
       Alert.alert('Error', 'Failed to load data');
@@ -168,6 +129,11 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
               <Text style={styles.userEmail}>{user.email}</Text>
               <Text style={styles.userType}>{user.userType}</Text>
               <Text style={styles.userStatus}>Status: {user.status}</Text>
+              {user.userType === 'guardian' && user.childName && (
+                <Text style={styles.childInfo}>
+                  Child: {user.childName} (Age: {user.childAge}, Severity: {user.severity})
+                </Text>
+              )}
             </View>
           ))
         )}
@@ -306,6 +272,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
+  },
+  childInfo: {
+    fontSize: 14,
+    color: '#4F8EF7',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   comingSoon: {
     textAlign: 'center',
