@@ -31,19 +31,24 @@ export const sendEmailOTP = async (email) => {
     });
 
     // Call the Vercel backend to send email
-    // TODO: Update this URL to your actual Vercel deployment URL
-    // You can find this in your Vercel dashboard
     const response = await fetch('https://vercel-backend-one-lime.vercel.app/api/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp }),
     });
+    
+    // Check if response is ok before parsing JSON
+    if (!response.ok) {
+      console.error('Vercel API error:', response.status, response.statusText);
+      return { success: false, message: 'Email service temporarily unavailable' };
+    }
+    
     const result = await response.json();
 
     if (result.success) {
       return { success: true, message: 'OTP sent to your email' };
     } else {
-      return { success: false, message: result.message };
+      return { success: false, message: result.message || 'Failed to send OTP' };
     }
   } catch (error) {
     console.error('Error sending OTP:', error);

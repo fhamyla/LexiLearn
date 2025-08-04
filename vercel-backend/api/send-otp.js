@@ -1,6 +1,17 @@
 const nodemailer = require("nodemailer");
 
 module.exports = async (req, res) => {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -9,6 +20,15 @@ module.exports = async (req, res) => {
 
   if (!email || !otp) {
     return res.status(400).json({ error: "Missing email or otp" });
+  }
+
+  // Check if environment variables are set
+  if (!process.env.GMAIL_EMAIL || !process.env.GMAIL_PASSWORD) {
+    console.error('Missing Gmail credentials');
+    return res.status(500).json({ 
+      success: false, 
+      message: "Email service not configured" 
+    });
   }
 
   const transporter = nodemailer.createTransport({
@@ -33,6 +53,8 @@ module.exports = async (req, res) => {
         <p>If you didn't request this code, please ignore this email.</p>
       </div>`,
     });
+    
+    console.log(`OTP sent successfully to ${email}`);
     return res.status(200).json({ success: true, message: "OTP sent to email" });
   } catch (error) {
     console.error('Gmail error:', error);
