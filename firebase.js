@@ -3,7 +3,7 @@ import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signInW
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs } from '@firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "YOUR_NEW_API_KEY_HERE",
+  apiKey: "AIzaSyAw0cZVU6mfpIB-eiHhXRYpk0wrT6QU5zU",
   authDomain: "lexilearn-4ee5b.firebaseapp.com",
   projectId: "lexilearn-4ee5b",
   storageBucket: "lexilearn-4ee5b.firebasestorage.app",
@@ -12,7 +12,19 @@ const firebaseConfig = {
   measurementId: "G-HK6C8BB2HD"
 };
 
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase only once
+let app;
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error) {
+  // If app already exists, get the existing one
+  if (error.code === 'app/duplicate-app') {
+    app = initializeApp();
+  } else {
+    throw error;
+  }
+}
+
 const auth = getAuth(app);
 const db = getFirestore(app);
 
