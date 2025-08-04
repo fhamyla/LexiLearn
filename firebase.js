@@ -31,6 +31,8 @@ export const sendEmailOTP = async (email) => {
     });
 
     // Call the Vercel backend to send email
+    // TODO: Update this URL to your actual Vercel deployment URL
+    // You can find this in your Vercel dashboard
     const response = await fetch('https://vercel-backend-one-lime.vercel.app/api/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

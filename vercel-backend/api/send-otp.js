@@ -35,6 +35,11 @@ module.exports = async (req, res) => {
     });
     return res.status(200).json({ success: true, message: "OTP sent to email" });
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to send OTP", error: error.message });
+    console.error('Gmail error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to send OTP", 
+      error: error.message 
+    });
   }
 }; 
