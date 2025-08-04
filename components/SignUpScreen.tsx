@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { createUserWithEmail, checkEmailExists } from '../firebase';
+import { createUserWithEmail, checkEmailExists, checkEmailVerification } from '../firebase';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const nameRegex = /^[A-Za-z]*$/;
@@ -24,6 +24,45 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [severity, setSeverity] = useState('');
   const [userType, setUserType] = useState('guardian'); // 'guardian' or 'teacher'
   const [isLoading, setIsLoading] = useState(false);
+  const [verificationTimer, setVerificationTimer] = useState(5);
+  const [showTimer, setShowTimer] = useState(false);
+
+  // Check for email verification when timer is running
+  useEffect(() => {
+    let verificationCheck: NodeJS.Timeout;
+    
+    if (showTimer && verificationTimer > 0) {
+      verificationCheck = setInterval(async () => {
+        try {
+          const result = await checkEmailVerification();
+          if (result.success && result.emailVerified) {
+            setShowTimer(false);
+            clearInterval(verificationCheck);
+            Alert.alert(
+              'Email Verified!', 
+              'Your email has been verified successfully! You can now sign in.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    if (onBack) onBack();
+                  }
+                }
+              ]
+            );
+          }
+        } catch (error) {
+          console.log('Error checking email verification:', error);
+        }
+      }, 1000); // Check every second
+    }
+
+    return () => {
+      if (verificationCheck) {
+        clearInterval(verificationCheck);
+      }
+    };
+  }, [showTimer, verificationTimer, onBack]);
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
@@ -165,15 +204,41 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       const result = await createUserWithEmail(email, password, userData);
       
       if (result.success) {
+        // Start countdown timer
+        setShowTimer(true);
+        setVerificationTimer(5);
+        
+        const timer = setInterval(() => {
+          setVerificationTimer((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              setShowTimer(false);
+              Alert.alert(
+                'Time Expired', 
+                'Verification time expired. Your account has been automatically deleted. Please sign up again.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      if (onBack) onBack();
+                    }
+                  }
+                ]
+              );
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        
         Alert.alert(
           'Success', 
-          'Account created successfully! Please check your email to verify your account before signing in.',
+          'Account created successfully! Please check your email and verify within 5 seconds, or your account will be automatically deleted.',
           [
             {
               text: 'OK',
               onPress: () => {
-                // Navigate back to login or clear form
-                if (onBack) onBack();
+                // Don't navigate back immediately, let timer run
               }
             }
           ]
@@ -201,6 +266,13 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       )}
       <View style={styles.card}>
         <Text style={styles.title}>Sign Up</Text>
+        {showTimer && (
+          <View style={styles.timerContainer}>
+            <Text style={styles.timerText}>
+              ⏰ Verify your email within: {verificationTimer} seconds
+            </Text>
+          </View>
+        )}
         <Text style={styles.requiredNote}>* Required fields are marked with an asterisk</Text>
         <Text style={styles.label}>Sign up as *</Text>
         <View style={styles.pickerContainer}>
@@ -476,6 +548,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  timerContainer: {
+    backgroundColor: '#FFF3CD',
+    borderColor: '#FFEAA7',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  timerText: {
+    color: '#856404',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 

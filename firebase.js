@@ -48,9 +48,26 @@ export const createUserWithEmail = async (email, password, userData) => {
       status: userData.userType === 'teacher' ? 'pending' : 'active',
     });
     
+    // Set up 5-second timer to delete unverified user data
+    setTimeout(async () => {
+      try {
+        // Check if user is still unverified after 5 seconds
+        await user.reload(); // Refresh user data
+        if (!user.emailVerified) {
+          // Delete user data from Firestore
+          await setDoc(userRef, {});
+          // Delete the user from Firebase Auth
+          await user.delete();
+          console.log('Unverified user data deleted after 5 seconds');
+        }
+      } catch (deleteError) {
+        console.error('Error deleting unverified user:', deleteError);
+      }
+    }, 5000); // 5 seconds = 5000 milliseconds
+    
     return { 
       success: true, 
-      message: 'Account created successfully! Please check your email to verify your account.',
+      message: 'Account created successfully! Please check your email and verify within 5 seconds.',
       user: user
     };
   } catch (error) {
