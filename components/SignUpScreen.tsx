@@ -4,7 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import { createUserWithEmail, checkEmailExists, checkEmailVerification } from '../firebase';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const nameRegex = /^[A-Za-z]*$/;
+const nameRegex = /^[A-Za-z\s]*$/;
 
 const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [email, setEmail] = useState('');
