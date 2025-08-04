@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   picker: {
-    height: 44,
+    height: 60,
     width: '100%',
   },
   infoText: {
