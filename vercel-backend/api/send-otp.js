@@ -1,6 +1,8 @@
-import nodemailer from "nodemailer";
+const nodemailer = require("nodemailer");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
+  console.log('API endpoint called:', req.method, req.url);
+  
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -8,21 +10,29 @@ export default async function handler(req, res) {
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     res.status(200).end();
     return;
   }
 
   if (req.method !== "POST") {
+    console.log('Method not allowed:', req.method);
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  console.log('Request body:', req.body);
   const { email, otp } = req.body;
 
   if (!email || !otp) {
+    console.log('Missing email or otp');
     return res.status(400).json({ error: "Missing email or otp" });
   }
 
   // Check if environment variables are set
+  console.log('Checking environment variables...');
+  console.log('GMAIL_EMAIL exists:', !!process.env.GMAIL_EMAIL);
+  console.log('GMAIL_PASSWORD exists:', !!process.env.GMAIL_PASSWORD);
+  
   if (!process.env.GMAIL_EMAIL || !process.env.GMAIL_PASSWORD) {
     console.error('Missing Gmail credentials');
     return res.status(500).json({ 
@@ -31,6 +41,7 @@ export default async function handler(req, res) {
     });
   }
 
+  console.log('Creating email transporter...');
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -40,6 +51,7 @@ export default async function handler(req, res) {
   });
 
   try {
+    console.log('Sending email to:', email);
     await transporter.sendMail({
       from: `LexiLearn <${process.env.GMAIL_EMAIL}>`,
       to: email,
