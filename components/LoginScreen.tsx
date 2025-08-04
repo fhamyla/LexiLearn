@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { checkAdminCredentials, signInUser } from '../firebase';
+import { checkAdminCredentials, signInUser, resendEmailVerification } from '../firebase';
 
 const LoginScreen: React.FC<{ 
   onSignUp?: () => void; 
@@ -63,9 +63,17 @@ const LoginScreen: React.FC<{
               { text: 'OK' },
               { 
                 text: 'Resend Verification', 
-                onPress: () => {
-                  // TODO: Implement resend verification email
-                  Alert.alert('Info', 'Please check your email for the verification link.');
+                onPress: async () => {
+                  try {
+                    const result = await resendEmailVerification();
+                    if (result.success) {
+                      Alert.alert('Success', result.message);
+                    } else {
+                      Alert.alert('Info', result.message);
+                    }
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to send verification email. Please try again.');
+                  }
                 }
               }
             ]

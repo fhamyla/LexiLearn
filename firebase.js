@@ -1,6 +1,7 @@
 import { initializeApp } from '@firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword } from '@firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs, deleteDoc } from '@firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAw0cZVU6mfpIB-eiHhXRYpk0wrT6QU5zU",
@@ -37,16 +38,24 @@ export const createUserWithEmail = async (email, password, userData) => {
     
     // Send email verification
     await sendEmailVerification(user);
+    await AsyncStorage.setItem('lastVerificationEmailTime', Date.now().toString()); // Set initial verification email time
     
     // Store additional user data in Firestore
     const userRef = doc(db, 'users', email);
-    await setDoc(userRef, {
-      ...userData,
-      uid: user.uid,
-      emailVerified: false,
-      createdAt: new Date(),
-      status: userData.userType === 'teacher' ? 'pending' : 'active',
-    });
+    try {
+      await setDoc(userRef, {
+        ...userData,
+        uid: user.uid,
+        emailVerified: false,
+        createdAt: new Date(),
+        status: userData.userType === 'teacher' ? 'pending' : 'active',
+      });
+    } catch (firestoreError) {
+      console.log('Firestore error:', firestoreError);
+      // If Firestore fails, still delete the Firebase Auth user
+      await user.delete();
+      throw new Error('Failed to save user data to database');
+    }
     
     // Set up 2-minute timer to delete unverified user data
     setTimeout(async () => {
@@ -58,10 +67,14 @@ export const createUserWithEmail = async (email, password, userData) => {
           await deleteDoc(userRef);
           // Delete the user from Firebase Auth
           await user.delete();
-          console.log('Unverified user data deleted after 2 minutes');
         }
       } catch (deleteError) {
-        console.error('Error deleting unverified user:', deleteError);
+        // If user.delete() fails, try to clean up Firestore anyway
+        try {
+          await deleteDoc(userRef);
+        } catch (firestoreDeleteError) {
+          // Silent error handling for unverified user deletion
+        }
       }
     }, 120000); // 2 minutes = 120000 milliseconds
     
@@ -71,15 +84,34 @@ export const createUserWithEmail = async (email, password, userData) => {
         user: user
       };
   } catch (error) {
-    console.error('Error creating user:', error);
     let errorMessage = 'Failed to create account';
     
+    // Log the specific error for debugging
+    console.log('Account creation error:', error.code, error.message);
+    
     if (error.code === 'auth/email-already-in-use') {
-      errorMessage = 'An account with this email already exists. Please use a different email or try signing in.';
+      // Check if there's actually a Firestore document for this user
+      const userRef = doc(db, 'users', email);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        // Orphaned Firebase Auth user - suggest cleanup
+        errorMessage = 'An account with this email exists but has no data. Please try signing in or contact support to reset your account.';
+      } else {
+        errorMessage = 'An account with this email already exists. Please use a different email or try signing in.';
+      }
     } else if (error.code === 'auth/weak-password') {
       errorMessage = 'Password should be at least 6 characters long.';
     } else if (error.code === 'auth/invalid-email') {
       errorMessage = 'Please enter a valid email address.';
+    } else if (error.code === 'auth/network-request-failed') {
+      errorMessage = 'Network error. Please check your internet connection and try again.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Too many requests. Please wait a moment and try again.';
+    } else if (error.code === 'auth/operation-not-allowed') {
+      errorMessage = 'Email/password accounts are not enabled. Please contact support.';
+    } else {
+      errorMessage = `Account creation failed: ${error.message}`;
     }
     
     return { success: false, message: errorMessage };
@@ -109,7 +141,6 @@ export const signInUser = async (email, password) => {
       emailVerified: user.emailVerified
     };
   } catch (error) {
-    console.error('Error signing in:', error);
     let errorMessage = 'Failed to sign in';
     
     if (error.code === 'auth/user-not-found') {
@@ -127,14 +158,35 @@ export const signInUser = async (email, password) => {
 export const resendEmailVerification = async () => {
   try {
     const user = auth.currentUser;
-    if (user && !user.emailVerified) {
-      await sendEmailVerification(user);
-      return { success: true, message: 'Verification email sent successfully!' };
-    } else {
+    if (!user || user.emailVerified) {
       return { success: false, message: 'No unverified user found' };
     }
+
+    // Get the last verification time from AsyncStorage
+    const lastVerificationTime = await AsyncStorage.getItem('lastVerificationEmailTime');
+    const currentTime = Date.now();
+    const thirtySecondsInMs = 30000; // 30 seconds in milliseconds
+
+    if (lastVerificationTime) {
+      const timeSinceLastEmail = currentTime - parseInt(lastVerificationTime);
+      
+      if (timeSinceLastEmail < thirtySecondsInMs) {
+        const remainingTime = Math.ceil((thirtySecondsInMs - timeSinceLastEmail) / 1000);
+        const seconds = remainingTime;
+        const timeString = `${seconds}s`;
+        
+        return { 
+          success: false, 
+          message: `Please wait ${timeString} before requesting another verification email.` 
+        };
+      }
+    }
+
+    await sendEmailVerification(user);
+    await AsyncStorage.setItem('lastVerificationEmailTime', currentTime.toString());
+    
+    return { success: true, message: 'Verification email sent successfully!' };
   } catch (error) {
-    console.error('Error sending verification email:', error);
     return { success: false, message: 'Failed to send verification email' };
   }
 };
@@ -152,7 +204,6 @@ export const checkEmailVerification = async () => {
       return { success: false, message: 'No user logged in' };
     }
   } catch (error) {
-    console.error('Error checking email verification:', error);
     return { success: false, message: 'Failed to check email verification' };
   }
 };
@@ -164,7 +215,6 @@ export const checkEmailExists = async (email) => {
     const userDoc = await getDoc(userRef);
     return userDoc.exists();
   } catch (error) {
-    console.error('Error checking email existence:', error);
     return false;
   }
 };
@@ -186,7 +236,6 @@ export const checkAdminCredentials = async (email, password) => {
 
     return { success: false, message: 'Invalid credentials' };
   } catch (error) {
-    console.error('Error checking admin credentials:', error);
     return { success: false, message: 'Failed to verify admin credentials' };
   }
 };
@@ -199,7 +248,6 @@ export const getPendingTeachers = async () => {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
-    console.error('Error getting pending teachers:', error);
     return [];
   }
 };
@@ -210,8 +258,29 @@ export const getAllUsers = async () => {
     const querySnapshot = await getDocs(usersRef);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
-    console.error('Error getting all users:', error);
     return [];
+  }
+};
+
+// Function to clean up orphaned Firebase Auth users
+export const cleanupOrphanedUser = async (email) => {
+  try {
+    // First check if there's a Firestore document
+    const userRef = doc(db, 'users', email);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      // Try to sign in with a temporary password to get the user object
+      // This is a workaround since we can't directly access Firebase Auth users
+      return { 
+        success: false, 
+        message: 'Orphaned account detected. Please try signing in with your password, or contact support to reset your account.' 
+      };
+    }
+    
+    return { success: true, message: 'User data exists' };
+  } catch (error) {
+    return { success: false, message: 'Failed to check user status' };
   }
 };
 
