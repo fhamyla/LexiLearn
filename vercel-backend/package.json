@@ -1,9 +1,0 @@
-{
-  "name": "vercel-backend",
-  "version": "1.0.0",
-  "main": "index.js",
-  "type": "commonjs",
-  "dependencies": {
-    "nodemailer": "^6.9.11"
-  }
-} 

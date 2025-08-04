@@ -1,5 +1,5 @@
 import { initializeApp } from '@firebase/app';
-import { getAuth } from '@firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword } from '@firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs } from '@firebase/firestore';
 
 const firebaseConfig = {
@@ -16,95 +16,115 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Email OTP functions
-export const sendEmailOTP = async (email) => {
+// Firebase Authentication functions
+export const createUserWithEmail = async (email, password, userData) => {
   try {
-    // Generate a 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Create user with Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
     
-    // Store OTP in Firestore with expiration (5 minutes)
-    const otpRef = doc(db, 'otps', email);
-    await setDoc(otpRef, {
-      otp,
+    // Send email verification
+    await sendEmailVerification(user);
+    
+    // Store additional user data in Firestore
+    const userRef = doc(db, 'users', email);
+    await setDoc(userRef, {
+      ...userData,
+      uid: user.uid,
+      emailVerified: false,
       createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
-    });
-
-    // First, test if the API is accessible
-    console.log('Testing Vercel API accessibility...');
-    const testResponse = await fetch('https://vercel-backend-one-lime.vercel.app/api/test');
-    console.log('Test response status:', testResponse.status);
-    
-    if (!testResponse.ok) {
-      console.error('Vercel API test failed:', testResponse.status, testResponse.statusText);
-      return { success: false, message: 'Email service not available - API test failed' };
-    }
-
-    // Call the Vercel backend to send email
-    // NOTE: If Vercel API continues to have issues, consider using:
-    // 1. EmailJS (free tier available)
-    // 2. Firebase Functions (limited free tier)
-    // 3. A different email service like SendGrid
-    console.log('Attempting to call Vercel API...');
-    const response = await fetch('https://vercel-backend-one-lime.vercel.app/api/send-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, otp }),
+      status: userData.userType === 'teacher' ? 'pending' : 'active',
     });
     
-    console.log('Response status:', response.status);
-    console.log('Response headers:', response.headers);
-    
-    // Check if response is ok before parsing JSON
-    if (!response.ok) {
-      console.error('Vercel API error:', response.status, response.statusText);
-      
-      // Fallback: For testing purposes, we'll simulate successful OTP sending
-      // In production, you should fix the Vercel API
-      console.log(`FALLBACK: OTP ${otp} would be sent to ${email}`);
-      return { success: true, message: 'OTP sent to your email (fallback mode)' };
-    }
-    
-    const result = await response.json();
-
-    if (result.success) {
-      return { success: true, message: 'OTP sent to your email' };
-    } else {
-      return { success: false, message: result.message || 'Failed to send OTP' };
-    }
+    return { 
+      success: true, 
+      message: 'Account created successfully! Please check your email to verify your account.',
+      user: user
+    };
   } catch (error) {
-    console.error('Error sending OTP:', error);
-    return { success: false, message: 'Failed to send OTP' };
+    console.error('Error creating user:', error);
+    let errorMessage = 'Failed to create account';
+    
+    if (error.code === 'auth/email-already-in-use') {
+      errorMessage = 'An account with this email already exists. Please use a different email or try signing in.';
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = 'Password should be at least 6 characters long.';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Please enter a valid email address.';
+    }
+    
+    return { success: false, message: errorMessage };
   }
 };
 
-export const verifyEmailOTP = async (email, otp) => {
+export const signInUser = async (email, password) => {
   try {
-    const otpRef = doc(db, 'otps', email);
-    const otpDoc = await getDoc(otpRef);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
     
-    if (!otpDoc.exists()) {
-      return { success: false, message: 'OTP not found' };
-    }
-
-    const otpData = otpDoc.data();
-    const now = new Date();
+    // Get user data from Firestore
+    const userRef = doc(db, 'users', email);
+    const userDoc = await getDoc(userRef);
     
-    if (now > otpData.expiresAt.toDate()) {
-      return { success: false, message: 'OTP has expired' };
+    if (!userDoc.exists()) {
+      return { success: false, message: 'User data not found' };
     }
-
-    if (otpData.otp !== otp) {
-      return { success: false, message: 'Invalid OTP' };
-    }
-
-    // Delete the OTP after successful verification
-    await setDoc(otpRef, { used: true });
     
-    return { success: true, message: 'OTP verified successfully' };
+    const userData = userDoc.data();
+    
+    return { 
+      success: true, 
+      message: 'Login successful',
+      userType: userData.userType,
+      userData: userData,
+      emailVerified: user.emailVerified
+    };
   } catch (error) {
-    console.error('Error verifying OTP:', error);
-    return { success: false, message: 'Failed to verify OTP' };
+    console.error('Error signing in:', error);
+    let errorMessage = 'Failed to sign in';
+    
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = 'No account found with this email address.';
+    } else if (error.code === 'auth/wrong-password') {
+      errorMessage = 'Incorrect password.';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Please enter a valid email address.';
+    }
+    
+    return { success: false, message: errorMessage };
+  }
+};
+
+export const resendEmailVerification = async () => {
+  try {
+    const user = auth.currentUser;
+    if (user && !user.emailVerified) {
+      await sendEmailVerification(user);
+      return { success: true, message: 'Verification email sent successfully!' };
+    } else {
+      return { success: false, message: 'No unverified user found' };
+    }
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    return { success: false, message: 'Failed to send verification email' };
+  }
+};
+
+export const checkEmailVerification = async () => {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      await user.reload(); // Refresh user data
+      return { 
+        success: true, 
+        emailVerified: user.emailVerified 
+      };
+    } else {
+      return { success: false, message: 'No user logged in' };
+    }
+  } catch (error) {
+    console.error('Error checking email verification:', error);
+    return { success: false, message: 'Failed to check email verification' };
   }
 };
 
@@ -142,57 +162,7 @@ export const checkAdminCredentials = async (email, password) => {
   }
 };
 
-// User authentication
-export const checkUserCredentials = async (email, password) => {
-  try {
-    const userRef = doc(db, 'users', email);
-    const userDoc = await getDoc(userRef);
-    
-    if (!userDoc.exists()) {
-      return { success: false, message: 'User not found' };
-    }
-
-    const userData = userDoc.data();
-    if (userData.password === password) {
-      return { 
-        success: true, 
-        message: 'Login successful',
-        userType: userData.userType,
-        userData: userData
-      };
-    }
-
-    return { success: false, message: 'Invalid email or password' };
-  } catch (error) {
-    console.error('Error checking user credentials:', error);
-    return { success: false, message: 'Failed to verify user credentials' };
-  }
-};
-
 // User management functions
-export const createUser = async (userData) => {
-  try {
-    // Check if user already exists
-    const userRef = doc(db, 'users', userData.email);
-    const existingUser = await getDoc(userRef);
-    
-    if (existingUser.exists()) {
-      return { success: false, message: 'An account with this email already exists. Please use a different email or try signing in.' };
-    }
-
-    // Create new user
-    await setDoc(userRef, {
-      ...userData,
-      createdAt: new Date(),
-      status: userData.userType === 'teacher' ? 'pending' : 'active',
-    });
-    return { success: true, message: 'User created successfully' };
-  } catch (error) {
-    console.error('Error creating user:', error);
-    return { success: false, message: 'Failed to create user' };
-  }
-};
-
 export const getPendingTeachers = async () => {
   try {
     const usersRef = collection(db, 'users');

@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { checkAdminCredentials, checkUserCredentials } from '../firebase';
+import { checkAdminCredentials, signInUser } from '../firebase';
 
 const LoginScreen: React.FC<{ 
   onSignUp?: () => void; 
@@ -36,54 +36,55 @@ const LoginScreen: React.FC<{
     setIsLoading(true);
     try {
       console.log('Login attempt with email:', email);
-      console.log('Password length:', password.length);
       
       // Check if it's admin login
-      console.log('Calling checkAdminCredentials...');
+      console.log('Checking admin credentials...');
       const adminResult = await checkAdminCredentials(email, password);
-      console.log('Admin login result:', adminResult);
       
       if (adminResult.success) {
-        console.log('Admin login successful, calling onAdminLogin');
-        if (onAdminLogin) {
-          onAdminLogin();
+        console.log('Admin login successful');
+        if (onAdminLogin) onAdminLogin();
+        return;
+      }
+
+      // Try regular user login with Firebase Authentication
+      console.log('Attempting Firebase Authentication login...');
+      const userResult = await signInUser(email, password);
+      
+      if (userResult.success) {
+        console.log('User login successful, userType:', userResult.userType);
+        
+        // Check if email is verified
+        if (!userResult.emailVerified) {
+          Alert.alert(
+            'Email Not Verified',
+            'Please verify your email address before signing in. Check your inbox for a verification email.',
+            [
+              { text: 'OK' },
+              { 
+                text: 'Resend Verification', 
+                onPress: () => {
+                  // TODO: Implement resend verification email
+                  Alert.alert('Info', 'Please check your email for the verification link.');
+                }
+              }
+            ]
+          );
           return;
+        }
+
+        // Navigate based on user type
+        if (userResult.userType === 'teacher') {
+          if (onModeratorLogin) onModeratorLogin();
+        } else {
+          if (onUserLogin) onUserLogin();
         }
       } else {
-        // Admin login failed, try user login
-        console.log('Admin login failed, trying user login');
-        console.log('Calling checkUserCredentials...');
-        const userResult = await checkUserCredentials(email, password);
-        console.log('User login result:', userResult);
-        
-        if (userResult.success) {
-          console.log('User login successful, userType:', userResult.userType);
-          
-          // Route based on user type
-          if (userResult.userType === 'teacher' || userResult.userType === 'moderator') {
-            console.log('Routing to moderator dashboard');
-            if (onModeratorLogin) {
-              onModeratorLogin();
-              return;
-            }
-          } else {
-            console.log('Routing to user dashboard');
-            if (onUserLogin) {
-              onUserLogin();
-              return;
-            }
-          }
-        } else {
-          // Both admin and user login failed, show error message
-          console.log('Both login attempts failed, showing error message');
-          console.log('Error message:', userResult.message);
-          setErrorMessage(userResult.message || 'Invalid email or password');
-          return;
-        }
+        setErrorMessage(userResult.message);
       }
     } catch (error) {
       console.error('Login error:', error);
-      setErrorMessage('Failed to login. Please try again.');
+      setErrorMessage('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }

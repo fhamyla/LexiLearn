@@ -1,24 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ScrollView, TouchableOpacity, Keyboard, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { sendEmailOTP, verifyEmailOTP, createUser, checkEmailExists } from '../firebase';
+import { createUserWithEmail, checkEmailExists } from '../firebase';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const nameRegex = /^[A-Za-z]*$/;
 
 const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [childAge, setChildAge] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
   const [emailError, setEmailError] = useState('');
-  const [timer, setTimer] = useState(0);
-  const [otpError, setOtpError] = useState('');
   const [firstNameError, setFirstNameError] = useState('');
   const [middleNameError, setMiddleNameError] = useState('');
   const [lastNameError, setLastNameError] = useState('');
@@ -27,71 +23,11 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [childNameError, setChildNameError] = useState('');
   const [severity, setSeverity] = useState('');
   const [userType, setUserType] = useState('guardian'); // 'guardian' or 'teacher'
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (timer > 0) {
-      timerRef.current = setTimeout(() => setTimer(timer - 1), 1000);
-    } else if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [timer]);
-
-  const handleSendOtp = async () => {
-    if (!emailRegex.test(email)) {
-      setEmailError('Please enter a valid email address');
-      return;
-    }
-    setEmailError('');
-    Keyboard.dismiss();
-    
-    try {
-      // Check if email already exists
-      const emailExists = await checkEmailExists(email);
-      if (emailExists) {
-        setEmailError('An account with this email already exists. Please use a different email or try signing in.');
-        return;
-      }
-      
-      setOtpSent(true);
-      setTimer(60);
-      
-      const result = await sendEmailOTP(email);
-      if (result.success) {
-        Alert.alert('Success', 'OTP sent to your email');
-      } else {
-        Alert.alert('Error', result.message);
-        setOtpSent(false);
-        setTimer(0);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to send OTP. Please try again.');
-      setOtpSent(false);
-      setTimer(0);
-    }
-  };
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
     setEmailError('');
-    setOtpSent(false);
-    setTimer(0);
-    setOtp('');
-  };
-
-  const handleOtpChange = (text: string) => {
-    // Only allow 6 digits
-    const sanitized = text.replace(/[^0-9]/g, '').slice(0, 6);
-    setOtp(sanitized);
-    if (sanitized.length > 0 && sanitized.length < 6) {
-      setOtpError('OTP must be 6 digits');
-    } else {
-      setOtpError('');
-    }
   };
 
   const handleChildAgeChange = (text: string) => {
@@ -111,8 +47,8 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
   const handlePasswordChange = (text: string) => {
     setPassword(text);
-    if (text.length < 7) {
-      setPasswordError('Password must be at least 7 characters');
+    if (text.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
     } else if (text.length > 20) {
       setPasswordError('Password must be at most 20 characters');
     } else {
@@ -150,8 +86,8 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       setPasswordError('Password is required');
       missingFields.push('Password');
       hasErrors = true;
-    } else if (password.length < 7) {
-      setPasswordError('Password must be at least 7 characters');
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
       hasErrors = true;
     }
 
@@ -192,11 +128,6 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       }
     }
 
-    if (!otpSent || !otp) {
-      Alert.alert('Error', 'Please verify your email with OTP');
-      return;
-    }
-
     if (hasErrors) {
       Alert.alert(
         'Required Fields Missing', 
@@ -205,18 +136,20 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      // Verify OTP
-      const otpResult = await verifyEmailOTP(email, otp);
-      if (!otpResult.success) {
-        Alert.alert('Error', otpResult.message);
+      // Check if email already exists
+      const emailExists = await checkEmailExists(email);
+      if (emailExists) {
+        setEmailError('An account with this email already exists. Please use a different email or try signing in.');
+        setIsLoading(false);
         return;
       }
 
-      // Create user
+      // Create user data object
       const userData = {
         email,
-        password,
         firstName,
         middleName,
         lastName,
@@ -228,19 +161,34 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         }),
       };
 
-      const createResult = await createUser(userData);
-      if (createResult.success) {
-        Alert.alert('Success', 'Account created successfully!');
-        // TODO: Navigate to appropriate screen based on user type
+      // Create user with Firebase Authentication
+      const result = await createUserWithEmail(email, password, userData);
+      
+      if (result.success) {
+        Alert.alert(
+          'Success', 
+          'Account created successfully! Please check your email to verify your account before signing in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Navigate back to login or clear form
+                if (onBack) onBack();
+              }
+            }
+          ]
+        );
       } else {
-        if (createResult.message.includes('already exists')) {
-          setEmailError(createResult.message);
+        if (result.message.includes('already exists')) {
+          setEmailError(result.message);
         } else {
-          Alert.alert('Error', createResult.message);
+          Alert.alert('Error', result.message);
         }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to create account. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -290,28 +238,6 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
             {emailError}
           </Text>
         ) : null}
-        <View style={styles.otpRow}>
-          <Button
-            title={timer > 0 ? `Resend OTP (${timer}s)` : otpSent ? "Resend OTP" : "Send OTP"}
-            onPress={handleSendOtp}
-            color="#4F8EF7"
-            disabled={!email || !emailRegex.test(email) || timer > 0 || emailError.includes('already exists')}
-          />
-        </View>
-        {otpSent && (
-          <>
-            <Text style={styles.label}>OTP *</Text>
-            <TextInput
-              style={[styles.input, otpError && styles.inputError]}
-              placeholder="Enter OTP"
-              value={otp}
-              onChangeText={handleOtpChange}
-              keyboardType="numeric"
-              maxLength={6}
-            />
-            {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
-          </>
-        )}
         <Text style={styles.label}>Password *</Text>
         <TextInput
           style={[
@@ -414,8 +340,14 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
             </View>
           </>
         )}
-        <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-          <Text style={styles.signUpButtonText}>Sign Up</Text>
+        <TouchableOpacity 
+          style={[styles.signUpButton, isLoading && styles.signUpButtonDisabled]} 
+          onPress={handleSignUp} 
+          disabled={isLoading}
+        >
+          <Text style={styles.signUpButtonText}>
+            {isLoading ? 'Signing Up...' : 'Sign Up'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -485,13 +417,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  otpRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 0,
-    justifyContent: 'flex-end',
-  },
   signUpButton: {
     backgroundColor: '#4F8EF7',
     borderRadius: 8,
@@ -503,6 +428,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
+  },
+  signUpButtonDisabled: {
+    opacity: 0.7,
   },
   signUpButtonText: {
     color: '#fff',
