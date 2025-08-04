@@ -1,101 +1,105 @@
-# LexiLearn - React Native App
+# LexiLearn - Learning App for Children with Learning Disabilities
 
-A modern React Native learning application built with Expo and Firebase.
+A React Native application designed to help children with learning disabilities through personalized learning experiences. The app supports both guardians/parents and teachers/moderators with different access levels and features.
 
-## 🚀 Quick Start
+## 🚀 Features
 
-### Prerequisites
+### For Guardians/Parents
+- **Account Creation**: Sign up with child's information
+- **Child Profile**: Store child's age, name, and learning severity
+- **Progress Tracking**: Monitor child's learning progress
+- **Email Verification**: Secure account creation with email verification
 
-- **Node.js** (v16 or higher)
-- **npm** or **yarn**
-- **Expo Go** app on your mobile device (iOS/Android)
-- **Firebase project** (for backend functionality)
+### For Teachers/Moderators
+- **Account Creation**: Sign up with professional credentials
+- **Pending Approval**: New teacher accounts require admin approval
+- **Professional Access**: Work email verification
+- **Moderator Dashboard**: Access to teaching tools
 
-### Installation & Setup
+### For Admins
+- **User Management**: Approve/reject teacher accounts
+- **System Overview**: View all users and their status
+- **Admin Dashboard**: Complete system control
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd LexiLearn
-   ```
+## 🛠️ Technical Stack
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+- **Frontend**: React Native with Expo
+- **Backend**: Firebase (Authentication, Firestore)
+- **Authentication**: Firebase Auth with email verification
+- **Database**: Firestore (NoSQL)
+- **Email**: Firebase Authentication built-in email verification
 
-3. **Install missing packages** (if not already included)
-   ```bash
-   npm install @expo/vector-icons @types/react-native
-   ```
+## 📋 Prerequisites
 
-4. **Update Expo to latest version** (if needed)
-   ```bash
-   npm update expo
-   ```
+- Node.js (v18 or higher)
+- npm or yarn
+- Expo CLI
+- Firebase account
+- Android Studio (for Android development)
+- Xcode (for iOS development, macOS only)
 
-## 🔥 Firebase Setup
+## 🔧 Installation & Setup
 
-### 1. Create Firebase Project
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd LexiLearn
+```
 
+### 2. Install Dependencies
+```bash
+npm install
+# or
+yarn install
+```
+
+### 3. Set Up Firebase
+
+#### **Create Firebase Project**
 1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project or use existing one
-3. Add a **Web app** to your project
-4. Copy your Firebase config
+2. Create a new project
+3. Enable Authentication and Firestore Database
 
-### 2. Configure Firebase
+#### **Configure Firebase in Your App**
+1. **Update `firebase.js`** with your project credentials:
 
-1. **Create `firebase.js`** in your project root:
-   ```javascript
-   import { initializeApp } from '@firebase/app';
-   import { getAuth } from '@firebase/auth';
-   import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs } from '@firebase/firestore';
-   import { getFunctions, httpsCallable } from '@firebase/functions';
+```javascript
+import { initializeApp } from '@firebase/app';
+import { getAuth } from '@firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs } from '@firebase/firestore';
 
-   const firebaseConfig = {
-     apiKey: "YOUR_API_KEY",
-     authDomain: "your-project.firebaseapp.com",
-     projectId: "your-project-id",
-     storageBucket: "your-project.firebasestorage.app",
-     messagingSenderId: "YOUR_SENDER_ID",
-     appId: "YOUR_APP_ID",
-     measurementId: "YOUR_MEASUREMENT_ID"
-   };
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID",
+  measurementId: "YOUR_MEASUREMENT_ID"
+};
 
-   const app = initializeApp(firebaseConfig);
-   const auth = getAuth(app);
-   const db = getFirestore(app);
-   const functions = getFunctions(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-   export { auth, db, functions };
-   ```
+export { auth, db };
+```
 
 2. **Replace config values** with your actual Firebase project credentials
 
-### 3. Set Up Firebase Services
+### 4. Set Up Firebase Services
 
 #### **Authentication**
 1. Go to Firebase Console → Authentication
 2. Enable **Email/Password** sign-in method
-3. Enable **Email link (passwordless sign-in)** for OTP
+3. Configure email templates (optional)
 
 #### **Firestore Database**
 1. Go to Firebase Console → Firestore Database
 2. Create database in **test mode** (for development)
 3. Set up security rules (see Security section below)
 
-#### **Firebase Functions** (for email OTP)
-1. Install Firebase CLI: `npm install -g firebase-tools`
-2. Login: `firebase login`
-3. Initialize functions: `firebase init functions`
-4. Set up email credentials:
-   ```bash
-   firebase functions:config:set gmail.email="your_gmail@gmail.com"
-   firebase functions:config:set gmail.password="your_app_password"
-   ```
-5. Deploy functions: `firebase deploy --only functions`
-
-### 4. Set Up Admin Account
+### 5. Set Up Admin Account
 
 1. **Create admin document** in Firestore:
    - Collection: `admins`
@@ -147,158 +151,153 @@ service cloud.firestore {
 ## 📱 Running the App
 
 ### For Development with Expo Go (Recommended)
-
-Use tunnel mode to run the app on your physical device from anywhere:
-
 ```bash
-npm run start:tunnel
+npm start
+# or
+yarn start
 ```
 
-This will:
-- Start the Expo development server
-- Create a secure tunnel for remote access
-- Display a QR code in your browser
-- Allow you to scan the QR code with Expo Go app
+Then scan the QR code with Expo Go app on your phone.
 
-### Alternative Commands
-
-- **Local development**: `npm start`
-- **Android emulator**: `npm run android`
-- **iOS simulator**: `npm run ios` (Mac only)
-- **Web browser**: `npm run web`
-
-### Using Expo Go
-
-1. **Download Expo Go** from your device's app store
-   - [iOS App Store](https://apps.apple.com/app/expo-go/id982107779)
-   - [Google Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
-
-2. **Scan the QR code** displayed in your browser after running `npm run start:tunnel`
-
-3. **The app will load** on your device and automatically reload when you make changes
-
-## 🚀 Deployment
-
-### Building APK
-
-1. **Install EAS CLI**:
-   ```bash
-   npm install -g @expo/eas-cli
-   ```
-
-2. **Configure EAS**:
-   ```bash
-   eas build:configure
-   ```
-
-3. **Build APK**:
-   ```bash
-   eas build -p android --profile preview
-   ```
-
-### Environment Variables
-
-For production, consider using environment variables for sensitive data:
-
+### For Development with Simulator/Emulator
 ```bash
-# Create .env file (not tracked by git)
-EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-# ... other config values
+# For iOS (macOS only)
+npm run ios
+
+# For Android
+npm run android
 ```
 
-## 🔧 Configuration
+### For Production Build
+```bash
+# Build for Android
+expo build:android
 
-### TypeScript Configuration
-
-The project uses a custom `tsconfig.json` optimized for React Native/Expo development:
-
-```json
-{
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true,
-    "esModuleInterop": true,
-    "jsx": "react-native",
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "target": "esnext",
-    "module": "esnext",
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true
-  }
-}
+# Build for iOS
+expo build:ios
 ```
 
-### Dependencies
-
-Key dependencies include:
-- **React Native**: 0.79.5
-- **Expo**: 53.0.20
-- **React**: 19.0.0
-- **TypeScript**: 5.8.3
-- **Firebase**: For backend services
-- **@expo/vector-icons**: For beautiful icons
-
-## 🐛 Troubleshooting
+## 🔍 Troubleshooting
 
 ### Common Issues
 
-1. **Firebase Configuration Errors**
-   - Ensure `firebase.js` is properly configured
-   - Check that all Firebase services are enabled
-   - Verify admin credentials in Firestore
+#### **Firebase Connection Issues**
+- Check your Firebase config in `firebase.js`
+- Verify your project ID and API keys
+- Ensure Authentication and Firestore are enabled
 
-2. **Email OTP Not Working**
-   - Check Firebase Functions deployment
-   - Verify Gmail credentials in Firebase config
-   - Check Firebase Functions logs
+#### **Email Verification Issues**
+- Check spam folder for verification emails
+- Verify email templates in Firebase Console
+- Ensure email verification is enabled in Authentication
 
-3. **TypeScript Errors**
-   - Ensure all dependencies are installed: `npm install`
-   - Check that `tsconfig.json` is properly configured
-   - Restart your development server
+#### **Build Issues**
+- Clear cache: `expo r -c`
+- Reset Metro: `npx react-native start --reset-cache`
+- Check Expo CLI version: `expo --version`
 
-4. **Expo Go Connection Issues**
-   - Use `npm run start:tunnel` for better connectivity
-   - Ensure your device and computer are on the same network (for local mode)
-   - Check firewall settings
+#### **Firestore Permission Issues**
+- Check Firestore security rules
+- Verify user authentication status
+- Check admin credentials in Firestore
 
-5. **Missing Dependencies**
-   - Run `npm install` to install all packages
-   - Install specific missing packages as needed
+### Debug Commands
+```bash
+# Check Firebase connection
+firebase projects:list
 
-### Error Solutions
+# Check Firestore data
+firebase firestore:indexes
 
-- **"Cannot find module"**: Run `npm install`
-- **"Cannot use JSX"**: Check `tsconfig.json` has `"jsx": "react-native"`
-- **"Module can only be default-imported"**: Ensure `"esModuleInterop": true` in `tsconfig.json`
-- **"Firebase not initialized"**: Check `firebase.js` configuration
-- **"Admin login failed"**: Verify admin document exists in Firestore
+# Check authentication status
+firebase auth:export
 
-## 📝 Development Notes
+# View app logs
+expo logs
+```
 
-- The app uses **Expo Go** for development and testing
-- **Tunnel mode** is recommended for testing on physical devices
-- All components are written in **TypeScript** for better development experience
-- **Firebase Functions** handle email OTP sending
-- **Firestore** stores user data and admin credentials
-- **Admin dashboard** is accessible only to the main admin account
+## 📊 Project Structure
+
+```
+LexiLearn/
+├── components/           # React Native components
+│   ├── LoginScreen.tsx  # User login interface
+│   ├── SignUpScreen.tsx # User registration
+│   ├── UserDashboard.tsx # Guardian dashboard
+│   ├── AdminDashboard.tsx # Admin interface
+│   └── ModeratorDashboard.tsx # Teacher interface
+├── firebase.js          # Firebase configuration
+├── App.tsx             # Main app component
+├── package.json        # Dependencies
+└── README.md          # This file
+```
+
+## 🔄 Development Workflow
+
+### Adding New Features
+1. Create feature branch: `git checkout -b feature/new-feature`
+2. Implement changes
+3. Test thoroughly
+4. Commit changes: `git commit -m "Add new feature"`
+5. Push to remote: `git push origin feature/new-feature`
+6. Create pull request
+
+### Database Schema
+
+#### Users Collection
+```javascript
+{
+  email: "user@example.com",
+  firstName: "John",
+  lastName: "Doe",
+  userType: "guardian" | "teacher",
+  childAge: 8, // Only for guardians
+  childName: "Jane", // Only for guardians
+  severity: "mild" | "moderate" | "severe" | "profound", // Only for guardians
+  status: "active" | "pending", // "pending" for teachers
+  createdAt: Timestamp,
+  emailVerified: boolean
+}
+```
+
+#### Admins Collection
+```javascript
+{
+  email: "admin@example.com",
+  password: "hashed_password"
+}
+```
+
+## 🚀 Deployment
+
+### Firebase Hosting (Web)
+```bash
+npm install -g firebase-tools
+firebase login
+firebase init hosting
+firebase deploy
+```
+
+### Mobile App Stores
+1. **Android**: Upload APK to Google Play Console
+2. **iOS**: Upload IPA to App Store Connect
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test with `npm run start:tunnel`
-5. Submit a pull request
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 📄 License
+## 📞 Support
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+For support, email support@lexilearn.com or create an issue in this repository.
 
 ---
 
-**Happy coding! 🎉**
+**Note**: This app is designed for children with learning disabilities. Please ensure all content is appropriate and accessible for the target audience.
