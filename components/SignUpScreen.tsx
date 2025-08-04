@@ -24,7 +24,7 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [severity, setSeverity] = useState('');
   const [userType, setUserType] = useState('guardian'); // 'guardian' or 'teacher'
   const [isLoading, setIsLoading] = useState(false);
-  const [verificationTimer, setVerificationTimer] = useState(5);
+  const [verificationTimer, setVerificationTimer] = useState(120);
   const [showTimer, setShowTimer] = useState(false);
 
   // Check for email verification when timer is running
@@ -206,7 +206,7 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       if (result.success) {
         // Start countdown timer
         setShowTimer(true);
-        setVerificationTimer(5);
+        setVerificationTimer(120);
         
         const timer = setInterval(() => {
           setVerificationTimer((prev) => {
@@ -233,7 +233,7 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         
         Alert.alert(
           'Success', 
-          'Account created successfully! Please check your email and verify within 5 seconds, or your account will be automatically deleted.',
+          'Account created successfully! Please check your email and verify within 2 minutes, or your account will be automatically deleted.',
           [
             {
               text: 'OK',
@@ -266,13 +266,13 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       )}
       <View style={styles.card}>
         <Text style={styles.title}>Sign Up</Text>
-        {showTimer && (
-          <View style={styles.timerContainer}>
-            <Text style={styles.timerText}>
-              ⏰ Verify your email within: {verificationTimer} seconds
-            </Text>
-          </View>
-        )}
+                 {showTimer && (
+           <View style={styles.timerContainer}>
+             <Text style={styles.timerText}>
+               ⏰ Verify your email within: {Math.floor(verificationTimer / 60)}:{(verificationTimer % 60).toString().padStart(2, '0')}
+             </Text>
+           </View>
+         )}
         <Text style={styles.requiredNote}>* Required fields are marked with an asterisk</Text>
         <Text style={styles.label}>Sign up as *</Text>
         <View style={styles.pickerContainer}>
