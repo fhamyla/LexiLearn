@@ -1,5 +1,5 @@
 import { initializeApp } from '@firebase/app';
-import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword } from '@firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, sendPasswordResetEmail } from '@firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs, deleteDoc } from '@firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -216,6 +216,39 @@ export const checkEmailExists = async (email) => {
     return userDoc.exists();
   } catch (error) {
     return false;
+  }
+};
+
+// Password reset function
+export const resetPassword = async (email) => {
+  try {
+    // First check if the user exists in our Firestore database
+    const userRef = doc(db, 'users', email);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return { success: false, message: 'No account found with this email address.' };
+    }
+    
+    // If user exists in our database, send the password reset email
+    await sendPasswordResetEmail(auth, email);
+    return { success: true, message: 'Password reset email sent successfully! Please check your inbox.' };
+  } catch (error) {
+    let errorMessage = 'Failed to send password reset email';
+    
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = 'No account found with this email address.';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Please enter a valid email address.';
+    } else if (error.code === 'auth/network-request-failed') {
+      errorMessage = 'Network error. Please check your internet connection and try again.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Too many requests. Please wait a moment and try again.';
+    } else {
+      errorMessage = `Password reset failed: ${error.message}`;
+    }
+    
+    return { success: false, message: errorMessage };
   }
 };
 

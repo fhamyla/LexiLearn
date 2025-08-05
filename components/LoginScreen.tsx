@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { checkAdminCredentials, signInUser, resendEmailVerification } from '../firebase';
+import { checkAdminCredentials, signInUser, resendEmailVerification, resetPassword } from '../firebase';
 
 const LoginScreen: React.FC<{ 
   onSignUp?: () => void; 
@@ -98,8 +98,22 @@ const LoginScreen: React.FC<{
     }
   };
 
-  const handleForgotPassword = () => {
-    Alert.alert('Forgot Password', 'Password reset functionality will be implemented here');
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email address first');
+      return;
+    }
+
+    try {
+      const result = await resetPassword(email);
+      if (result.success) {
+        Alert.alert('Success', result.message);
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send password reset email. Please try again.');
+    }
   };
 
   const handleSignUp = () => {
