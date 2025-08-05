@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { getAllUsers } from '../firebase';
 
 interface Student {
@@ -10,6 +10,18 @@ interface Student {
   childAge?: number;
   severity?: string;
   progress?: number;
+}
+
+interface User {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  userType?: string;
+  status?: string;
+  childName?: string;
+  childAge?: number;
+  severity?: string;
 }
 
 interface LearningContent {
@@ -24,6 +36,9 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   const [students, setStudents] = useState<Student[]>([]);
   const [learningContent, setLearningContent] = useState<LearningContent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [severityFilter, setSeverityFilter] = useState<'all' | 'mild' | 'moderate' | 'severe'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sectionFilter, setSectionFilter] = useState<'learning' | 'improvements'>('learning');
 
   useEffect(() => {
     loadData();
@@ -36,8 +51,8 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
       
       // Filter for guardian users and map to Student interface
       const students: Student[] = users
-        .filter(user => user.userType === 'guardian')
-        .map(user => ({
+        .filter((user: User) => user.userType === 'guardian')
+        .map((user: User) => ({
           id: user.id,
           firstName: user.firstName,
           lastName: user.lastName,
@@ -80,6 +95,29 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
     }
   };
 
+  const getStudentsWithSeverity = () => {
+    if (severityFilter === 'all') {
+      return students;
+    }
+    return students.filter(student => student.severity === severityFilter);
+  };
+
+  const getStudentsWithSeverityAndSearch = () => {
+    let filtered = getStudentsWithSeverity();
+    
+    if (searchQuery.trim() === '') {
+      return filtered;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return filtered.filter(student => {
+      const guardianName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase();
+      const childName = (student.childName || '').toLowerCase();
+      
+      return guardianName.includes(query) || childName.includes(query);
+    });
+  };
+
   const handleLogout = () => {
     console.log('handleLogout called in ModeratorDashboard');
     Alert.alert(
@@ -101,6 +139,8 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
       ]
     );
   };
+
+
 
   const handleActivateContent = (contentId: string) => {
     // TODO: Implement activate content logic
@@ -124,23 +164,178 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
           </TouchableOpacity>
         )}
       </View>
+
+
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by guardian or child name..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholderTextColor="#999"
+        />
+      </View>
+
+      {/* Section Filter Buttons */}
+      <View style={styles.sectionFilterContainer}>
+        <TouchableOpacity
+          style={[styles.sectionFilterButton, sectionFilter === 'learning' && styles.sectionFilterButtonActive]}
+          onPress={() => setSectionFilter('learning')}
+        >
+          <Text style={[styles.sectionFilterButtonText, sectionFilter === 'learning' && styles.sectionFilterButtonTextActive]}>
+            Learning Journey
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sectionFilterButton, sectionFilter === 'improvements' && styles.sectionFilterButtonActive]}
+          onPress={() => setSectionFilter('improvements')}
+        >
+          <Text style={[styles.sectionFilterButtonText, sectionFilter === 'improvements' && styles.sectionFilterButtonTextActive]}>
+            Improvements Bar
+          </Text>
+        </TouchableOpacity>
+      </View>
       
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Student Progress ({students.length})</Text>
+      {sectionFilter === 'learning' && (
+        <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Children's Learning Journey ({getStudentsWithSeverityAndSearch().length})</Text>
+        
+        {/* Severity Filter Buttons */}
+        <View style={styles.filterButtons}>
+          <TouchableOpacity
+            style={[styles.filterButton, severityFilter === 'all' && styles.filterButtonActive]}
+            onPress={() => setSeverityFilter('all')}
+          >
+            <Text style={[styles.filterButtonText, severityFilter === 'all' && styles.filterButtonTextActive]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, severityFilter === 'mild' && styles.filterButtonActive]}
+            onPress={() => setSeverityFilter('mild')}
+          >
+            <Text style={[styles.filterButtonText, severityFilter === 'mild' && styles.filterButtonTextActive]}>Mild</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, severityFilter === 'moderate' && styles.filterButtonActive]}
+            onPress={() => setSeverityFilter('moderate')}
+          >
+            <Text style={[styles.filterButtonText, severityFilter === 'moderate' && styles.filterButtonTextActive]}>Moderate</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, severityFilter === 'severe' && styles.filterButtonActive]}
+            onPress={() => setSeverityFilter('severe')}
+          >
+            <Text style={[styles.filterButtonText, severityFilter === 'severe' && styles.filterButtonTextActive]}>Severe</Text>
+          </TouchableOpacity>
+        </View>
+
         {loading ? (
           <Text style={styles.loadingText}>Loading...</Text>
-        ) : students.length === 0 ? (
-          <Text style={styles.emptyText}>No students found</Text>
+        ) : getStudentsWithSeverityAndSearch().length === 0 ? (
+          <Text style={styles.emptyText}>No children found</Text>
         ) : (
-          students.map((student) => (
-            <View key={student.id} style={styles.studentCard}>
-              <Text style={styles.studentName}>{student.firstName} {student.lastName}</Text>
+          getStudentsWithSeverityAndSearch().map((student) => (
+            <View key={student.id} style={styles.childCard}>
+              <Text style={styles.childName}>{student.firstName} {student.lastName}</Text>
               <Text style={styles.childInfo}>Child: {student.childName} (Age: {student.childAge})</Text>
               <Text style={styles.severityInfo}>Severity: {student.severity}</Text>
-              <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Progress: {student.progress}%</Text>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: `${student.progress}%` }]} />
+              
+              {/* Learning Journey per child */}
+              <View style={styles.learningJourneyContainer}>
+                <Text style={styles.journeyTitle}>Learning Journey for {student.childName}</Text>
+                
+                {/* Reading Category */}
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>📚 Reading</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Basic Phonics</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '100%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>✅ Completed</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Sight Words</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '75%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>🔄 In Progress</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Reading Comprehension</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '25%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Math Category */}
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>🔢 Math</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Number Recognition</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '100%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>✅ Completed</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Basic Addition</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '60%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>🔄 In Progress</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Subtraction</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Social Skills Category */}
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>🤝 Social Skills</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Eye Contact</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '80%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>🔄 In Progress</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Turn Taking</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '45%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>🔄 In Progress</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Emotion Recognition</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Overall Progress */}
+                <View style={styles.overallProgress}>
+                  <Text style={styles.overallTitle}>Overall Progress</Text>
+                  <View style={styles.overallBar}>
+                    <View style={[styles.overallFill, { width: '65%' }]} />
+                  </View>
+                  <Text style={styles.overallPercentage}>65% Complete</Text>
                 </View>
               </View>
             </View>
@@ -148,56 +343,90 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Learning Content Management</Text>
+      )}
+
+      {sectionFilter === 'improvements' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Improvements Bar ({getStudentsWithSeverityAndSearch().length})</Text>
+        
+        {/* Severity Filter Buttons */}
+        <View style={styles.filterButtons}>
+          <TouchableOpacity
+            style={[styles.filterButton, severityFilter === 'all' && styles.filterButtonActive]}
+            onPress={() => setSeverityFilter('all')}
+          >
+            <Text style={[styles.filterButtonText, severityFilter === 'all' && styles.filterButtonTextActive]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, severityFilter === 'mild' && styles.filterButtonActive]}
+            onPress={() => setSeverityFilter('mild')}
+          >
+            <Text style={[styles.filterButtonText, severityFilter === 'mild' && styles.filterButtonTextActive]}>Mild</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, severityFilter === 'moderate' && styles.filterButtonActive]}
+            onPress={() => setSeverityFilter('moderate')}
+          >
+            <Text style={[styles.filterButtonText, severityFilter === 'moderate' && styles.filterButtonTextActive]}>Moderate</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, severityFilter === 'severe' && styles.filterButtonActive]}
+            onPress={() => setSeverityFilter('severe')}
+          >
+            <Text style={[styles.filterButtonText, severityFilter === 'severe' && styles.filterButtonTextActive]}>Severe</Text>
+          </TouchableOpacity>
+        </View>
+
         {loading ? (
           <Text style={styles.loadingText}>Loading...</Text>
-        ) : learningContent.length === 0 ? (
-          <Text style={styles.emptyText}>No content found</Text>
+        ) : getStudentsWithSeverityAndSearch().length === 0 ? (
+          <Text style={styles.emptyText}>No children found</Text>
         ) : (
-          learningContent.map((content) => (
-            <View key={content.id} style={styles.contentCard}>
-              <Text style={styles.contentTitle}>{content.title}</Text>
-              <Text style={styles.contentCategory}>{content.category} - {content.difficulty}</Text>
-              <Text style={[styles.contentStatus, content.status === 'active' ? styles.activeStatus : styles.inactiveStatus]}>
-                Status: {content.status}
-              </Text>
-              <View style={styles.actionButtons}>
-                {content.status === 'inactive' ? (
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.activateButton]}
-                    onPress={() => handleActivateContent(content.id)}
-                  >
-                    <Text style={styles.actionButtonText}>Activate</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.deactivateButton]}
-                    onPress={() => handleDeactivateContent(content.id)}
-                  >
-                    <Text style={styles.actionButtonText}>Deactivate</Text>
-                  </TouchableOpacity>
-                )}
+          getStudentsWithSeverityAndSearch().map((student) => (
+            <View key={student.id} style={styles.childCard}>
+              <Text style={styles.childName}>{student.firstName} {student.lastName}</Text>
+              <Text style={styles.childInfo}>Child: {student.childName} (Age: {student.childAge})</Text>
+              <Text style={styles.severityInfo}>Severity: {student.severity}</Text>
+              
+              {/* Improvements per child */}
+              <View style={styles.improvementsContainer}>
+                <Text style={styles.improvementTitle}>Improvements for {student.childName}</Text>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Reading Progress</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '75%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>75%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Writing Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '60%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>60%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Math Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '85%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>85%</Text>
+                </View>
+                
+                {/* Overall Improvements */}
+                <View style={styles.overallProgress}>
+                  <Text style={styles.overallTitle}>Overall Improvements</Text>
+                  <View style={styles.overallBar}>
+                    <View style={[styles.overallFill, { width: '73%' }]} />
+                  </View>
+                  <Text style={styles.overallPercentage}>73% Complete</Text>
+                </View>
               </View>
             </View>
           ))
         )}
       </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionText}>Create New Content</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionText}>View Reports</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionText}>Message Parents</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      )}
     </ScrollView>
   );
 };
@@ -208,6 +437,7 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#F0F4F8',
     alignItems: 'center',
+    minHeight: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -234,6 +464,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
+  },
+  searchContainer: {
+    width: '100%',
+    maxWidth: 600,
+    marginBottom: 20,
+  },
+  searchInput: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    fontSize: 16,
+    color: '#333',
   },
   section: {
     width: '100%',
@@ -275,16 +520,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  childInfo: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+  childCard: {
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
   },
-  severityInfo: {
+  childName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  childInfo: {
     fontSize: 14,
     color: '#4F8EF7',
     marginTop: 4,
-    textTransform: 'capitalize',
+    fontStyle: 'italic',
+  },
+  severityInfo: {
+    fontSize: 14,
+    color: '#dc3545',
+    marginTop: 4,
+    fontWeight: '600',
   },
   progressContainer: {
     marginTop: 8,
@@ -304,72 +562,152 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#28a745',
   },
-  contentCard: {
-    backgroundColor: '#f8f9fa',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
+  improvementsContainer: {
+    marginTop: 16,
   },
-  contentTitle: {
+  improvementItem: {
+    marginBottom: 15,
+  },
+  improvementLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
+    marginBottom: 8,
   },
-  contentCategory: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  contentStatus: {
-    fontSize: 14,
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  activeStatus: {
-    color: '#28a745',
-  },
-  inactiveStatus: {
-    color: '#dc3545',
-  },
-  actionButtons: {
+  filterButtons: {
     flexDirection: 'row',
-    marginTop: 12,
+    justifyContent: 'space-around',
+    marginBottom: 12,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 5,
   },
-  actionButton: {
-    paddingHorizontal: 16,
+  filterButton: {
+    paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
-    marginRight: 8,
   },
-  activateButton: {
-    backgroundColor: '#28a745',
-  },
-  deactivateButton: {
-    backgroundColor: '#ffc107',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  quickActionButton: {
+  filterButtonActive: {
     backgroundColor: '#4F8EF7',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    minWidth: '48%',
+    borderColor: '#4F8EF7',
   },
-  quickActionText: {
-    color: '#fff',
+  filterButtonText: {
+    color: '#666',
     fontSize: 14,
     fontWeight: '500',
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
+  improvementTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
     textAlign: 'center',
+  },
+  learningJourneyContainer: {
+    marginTop: 15,
+  },
+  journeyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  categorySection: {
+    marginBottom: 20,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4F8EF7',
+    marginBottom: 10,
+  },
+  lessonProgress: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 10,
+  },
+  lessonItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  lessonName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    flex: 1,
+  },
+  lessonStatus: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  overallProgress: {
+    marginTop: 20,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 10,
+  },
+  overallTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  overallBar: {
+    height: 10,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  overallFill: {
+    height: '100%',
+    backgroundColor: '#4F8EF7',
+    borderRadius: 5,
+  },
+  overallPercentage: {
+    textAlign: 'right',
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  sectionFilterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 5,
+  },
+  sectionFilterButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  sectionFilterButtonActive: {
+    backgroundColor: '#4F8EF7',
+    borderColor: '#4F8EF7',
+  },
+  sectionFilterButtonText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  sectionFilterButtonTextActive: {
+    color: '#fff',
   },
 });
 

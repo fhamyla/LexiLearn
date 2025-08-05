@@ -139,6 +139,8 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     }
   };
 
+
+
   const handleStartActivity = (activityId: string) => {
     // TODO: Implement start activity logic
     Alert.alert('Success', 'Activity started successfully');
@@ -159,6 +161,8 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
           </TouchableOpacity>
         )}
       </View>
+
+
       
 
       
@@ -267,6 +271,7 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#F0F4F8',
     alignItems: 'center',
+    minHeight: '100%',
   },
   header: {
     flexDirection: 'row',
