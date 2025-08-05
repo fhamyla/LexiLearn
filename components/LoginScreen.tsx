@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { checkAdminCredentials, signInUser, resendEmailVerification, resetPassword } from '../firebase';
+import { checkAdminCredentials, signInUser, resendEmailVerification, resetPassword, checkTeacherApproval } from '../firebase';
 
 const LoginScreen: React.FC<{ 
   onSignUp?: () => void; 
@@ -79,6 +79,27 @@ const LoginScreen: React.FC<{
             ]
           );
           return;
+        }
+
+        // For teachers/moderators, check if their account is approved
+        if (userResult.userType === 'teacher') {
+          const approvalResult = await checkTeacherApproval(email);
+          if (approvalResult.success && !approvalResult.isApproved) {
+            Alert.alert(
+              'Account Pending Approval',
+              'Your account is waiting for admin approval. You will be able to sign in once your account has been approved.',
+              [{ text: 'OK' }]
+            );
+            return;
+          } else if (!approvalResult.success) {
+            // This could be a deleted account or other error
+            Alert.alert(
+              'Account Status',
+              approvalResult.message,
+              [{ text: 'OK' }]
+            );
+            return;
+          }
         }
 
         // Navigate based on user type

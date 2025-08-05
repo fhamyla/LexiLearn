@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { getPendingTeachers, getAllUsers } from '../firebase';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { getPendingTeachers, getAllUsers, approveTeacher, rejectTeacher } from '../firebase';
 
 interface Teacher {
   id: string;
@@ -28,6 +28,10 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const [pendingTeachers, setPendingTeachers] = useState<Teacher[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [deleteEmail, setDeleteEmail] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
 
   useEffect(() => {
     console.log('AdminDashboard mounted, onLogout prop:', !!onLogout);
@@ -52,15 +56,54 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   };
 
   const handleApproveTeacher = async (teacherId: string) => {
-    // TODO: Implement approve teacher logic
-    Alert.alert('Success', 'Teacher approved successfully');
-    loadData(); // Reload data
+    try {
+      const result = await approveTeacher(teacherId);
+      if (result.success) {
+        Alert.alert('Success', result.message);
+        loadData(); // Reload data
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to approve teacher');
+    }
   };
 
-  const handleRejectTeacher = async (teacherId: string) => {
-    // TODO: Implement reject teacher logic
-    Alert.alert('Success', 'Teacher rejected');
-    loadData(); // Reload data
+  const handleRejectTeacher = async (teacher: Teacher) => {
+    setSelectedTeacher(teacher);
+    setDeleteEmail(teacher.email || '');
+    setDeletePassword('');
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedTeacher || !deleteEmail || !deletePassword) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    try {
+      const result = await rejectTeacher(deleteEmail, deletePassword);
+      if (result.success) {
+        Alert.alert('Success', result.message);
+        setShowDeleteDialog(false);
+        setDeleteEmail('');
+        setDeletePassword('');
+        setSelectedTeacher(null);
+        loadData(); // Reload data
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to delete teacher account');
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteDialog(false);
+    setDeleteEmail('');
+    setDeletePassword('');
+    setSelectedTeacher(null);
   };
 
   const handleLogout = () => {
@@ -106,7 +149,7 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.rejectButton]}
-                  onPress={() => handleRejectTeacher(teacher.id)}
+                  onPress={() => handleRejectTeacher(teacher)}
                 >
                   <Text style={styles.actionButtonText}>Reject</Text>
                 </TouchableOpacity>
@@ -143,6 +186,35 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         <Text style={styles.sectionTitle}>Children's Learning Progress</Text>
         <Text style={styles.comingSoon}>Learning tracking features coming soon...</Text>
       </View>
+
+      {showDeleteDialog && selectedTeacher && (
+        <View style={styles.deleteDialog}>
+          <Text style={styles.deleteDialogTitle}>Confirm Rejection</Text>
+          <TextInput
+            style={styles.deleteDialogInput}
+            placeholder="Email"
+            value={deleteEmail}
+            onChangeText={setDeleteEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.deleteDialogInput}
+            placeholder="Password"
+            value={deletePassword}
+            onChangeText={setDeletePassword}
+            secureTextEntry
+          />
+          <View style={styles.deleteDialogButtons}>
+            <TouchableOpacity style={styles.deleteDialogButton} onPress={handleConfirmDelete}>
+              <Text style={styles.deleteDialogButtonText}>Confirm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteDialogButton} onPress={handleCancelDelete}>
+              <Text style={styles.deleteDialogButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -285,8 +357,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontStyle: 'italic',
   },
-
-
+  deleteDialog: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  deleteDialogTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  deleteDialogInput: {
+    width: '80%',
+    height: 50,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    backgroundColor: '#fff',
+  },
+  deleteDialogButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '80%',
+  },
+  deleteDialogButton: {
+    backgroundColor: '#4F8EF7',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  deleteDialogButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
 });
 
 export default AdminDashboard; 

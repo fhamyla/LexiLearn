@@ -128,7 +128,11 @@ export const signInUser = async (email, password) => {
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
-      return { success: false, message: 'User data not found' };
+      // User exists in Firebase Auth but not in Firestore (completely deleted)
+      return { 
+        success: false, 
+        message: 'Your account has been completely deleted from the system. Please contact support if you believe this is an error.' 
+      };
     }
     
     const userData = userDoc.data();
@@ -295,6 +299,48 @@ export const getAllUsers = async () => {
   }
 };
 
+export const approveTeacher = async (email) => {
+  try {
+    const userRef = doc(db, 'users', email);
+    await setDoc(userRef, { status: 'active' }, { merge: true });
+    return { success: true, message: 'Teacher approved successfully' };
+  } catch (error) {
+    return { success: false, message: 'Failed to approve teacher' };
+  }
+};
+
+export const rejectTeacher = async (email, password) => {
+  try {
+    // First, sign in as the user to get their account
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    // Now delete the user's own account (like email verification)
+    await user.delete();
+    
+    // Also delete from Firestore
+    const userRef = doc(db, 'users', email);
+    await deleteDoc(userRef);
+    
+    return { 
+      success: true, 
+      message: 'Teacher account has been completely deleted from both database and Firebase Authentication.' 
+    };
+  } catch (error) {
+    let errorMessage = 'Failed to delete teacher account';
+    
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = 'No account found with this email address.';
+    } else if (error.code === 'auth/wrong-password') {
+      errorMessage = 'Incorrect password.';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Please enter a valid email address.';
+    }
+    
+    return { success: false, message: errorMessage };
+  }
+};
+
 // Function to clean up orphaned Firebase Auth users
 export const cleanupOrphanedUser = async (email) => {
   try {
@@ -314,6 +360,27 @@ export const cleanupOrphanedUser = async (email) => {
     return { success: true, message: 'User data exists' };
   } catch (error) {
     return { success: false, message: 'Failed to check user status' };
+  }
+};
+
+export const checkTeacherApproval = async (email) => {
+  try {
+    const userRef = doc(db, 'users', email);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return { success: false, message: 'User not found' };
+    }
+    
+    const userData = userDoc.data();
+    
+    return { 
+      success: true, 
+      isApproved: userData.status === 'active',
+      status: userData.status 
+    };
+  } catch (error) {
+    return { success: false, message: 'Failed to check approval status' };
   }
 };
 
