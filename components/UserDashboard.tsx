@@ -52,6 +52,11 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       }
 
       // Get user data from Firestore
+      if (!user.email) {
+        Alert.alert('Error', 'User email not found');
+        return;
+      }
+      
       const userRef = doc(db, 'users', user.email);
       const userDoc = await getDoc(userRef);
       
@@ -282,7 +287,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   title: {
-    fontSize: 32,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#4F8EF7',
     textAlign: 'center',

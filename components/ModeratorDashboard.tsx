@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   title: {
-    fontSize: 32,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#4F8EF7',
     textAlign: 'center',
@@ -687,24 +687,26 @@ const styles = StyleSheet.create({
   sectionFilterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 20,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 5,
+    marginBottom: 16,
+    width: '100%',
+    maxWidth: 600,
   },
   sectionFilterButton: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
   },
   sectionFilterButtonActive: {
     backgroundColor: '#4F8EF7',
     borderColor: '#4F8EF7',
   },
   sectionFilterButtonText: {
-    color: '#666',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
+    color: '#333',
   },
   sectionFilterButtonTextActive: {
     color: '#fff',

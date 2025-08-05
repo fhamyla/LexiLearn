@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   title: {
-    fontSize: 32,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#4F8EF7',
     textAlign: 'center',
