@@ -30,6 +30,7 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteEmail, setDeleteEmail] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
 
@@ -71,31 +72,57 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
   const handleRejectTeacher = async (teacher: Teacher) => {
     setSelectedTeacher(teacher);
+    setSelectedUser(null);
     setDeleteEmail(teacher.email || '');
     setDeletePassword('');
     setShowDeleteDialog(true);
   };
 
+  const handleDeleteUser = async (user: User) => {
+    setSelectedUser(user);
+    setSelectedTeacher(null);
+    setDeleteEmail(user.email || '');
+    setDeletePassword('');
+    setShowDeleteDialog(true);
+  };
+
   const handleConfirmDelete = async () => {
-    if (!selectedTeacher || !deleteEmail || !deletePassword) {
+    if (!selectedTeacher && !selectedUser) {
+      Alert.alert('Error', 'No user or teacher selected for deletion.');
+      return;
+    }
+
+    let emailToDelete = '';
+    let passwordToDelete = '';
+
+    if (selectedTeacher) {
+      emailToDelete = selectedTeacher.email || '';
+      passwordToDelete = deletePassword;
+    } else if (selectedUser) {
+      emailToDelete = selectedUser.email || '';
+      passwordToDelete = deletePassword;
+    }
+
+    if (!emailToDelete || !passwordToDelete) {
       Alert.alert('Error', 'Please enter both email and password');
       return;
     }
 
     try {
-      const result = await rejectTeacher(deleteEmail, deletePassword);
+      const result = await rejectTeacher(emailToDelete, passwordToDelete);
       if (result.success) {
         Alert.alert('Success', result.message);
         setShowDeleteDialog(false);
         setDeleteEmail('');
         setDeletePassword('');
         setSelectedTeacher(null);
+        setSelectedUser(null);
         loadData(); // Reload data
       } else {
         Alert.alert('Error', result.message);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to delete teacher account');
+      Alert.alert('Error', 'Failed to delete account');
     }
   };
 
@@ -104,6 +131,7 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     setDeleteEmail('');
     setDeletePassword('');
     setSelectedTeacher(null);
+    setSelectedUser(null);
   };
 
   const handleLogout = () => {
@@ -119,9 +147,9 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {showDeleteDialog && selectedTeacher && (
+      {showDeleteDialog && (selectedTeacher || selectedUser) && (
         <View style={styles.deleteDialog}>
-          <Text style={styles.deleteDialogTitle}>Confirm Rejection</Text>
+          <Text style={styles.deleteDialogTitle}>Confirm Account Deletion</Text>
           <TextInput
             style={styles.deleteDialogInput}
             placeholder="Email"
@@ -205,6 +233,14 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                   Child: {user.childName} (Age: {user.childAge}, Severity: {user.severity})
                 </Text>
               )}
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.rejectButton]}
+                  onPress={() => handleDeleteUser(user)}
+                >
+                  <Text style={styles.actionButtonText}>Delete User</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))
         )}

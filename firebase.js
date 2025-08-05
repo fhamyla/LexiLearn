@@ -324,10 +324,10 @@ export const rejectTeacher = async (email, password) => {
     
     return { 
       success: true, 
-      message: 'Teacher account has been completely deleted from both database and Firebase Authentication.' 
+      message: 'Account has been completely deleted from both database and Firebase Authentication.' 
     };
   } catch (error) {
-    let errorMessage = 'Failed to delete teacher account';
+    let errorMessage = 'Failed to delete account';
     
     if (error.code === 'auth/user-not-found') {
       errorMessage = 'No account found with this email address.';
