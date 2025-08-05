@@ -119,6 +119,35 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {showDeleteDialog && selectedTeacher && (
+        <View style={styles.deleteDialog}>
+          <Text style={styles.deleteDialogTitle}>Confirm Rejection</Text>
+          <TextInput
+            style={styles.deleteDialogInput}
+            placeholder="Email"
+            value={deleteEmail}
+            onChangeText={setDeleteEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.deleteDialogInput}
+            placeholder="Password"
+            value={deletePassword}
+            onChangeText={setDeletePassword}
+            secureTextEntry
+          />
+          <View style={styles.deleteDialogButtons}>
+            <TouchableOpacity style={styles.deleteDialogButton} onPress={handleConfirmDelete}>
+              <Text style={styles.deleteDialogButtonText}>Confirm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteDialogButton} onPress={handleCancelDelete}>
+              <Text style={styles.deleteDialogButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <View style={styles.header}>
         <Text style={styles.title}>Admin Dashboard</Text>
         {onLogout && (
@@ -128,9 +157,8 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         )}
       </View>
 
-      
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Approve Moderators/Teachers</Text>
+        <Text style={styles.sectionTitle}>Approve or Delete Moderators/Teachers</Text>
         {loading ? (
           <Text style={styles.loadingText}>Loading...</Text>
         ) : pendingTeachers.length === 0 ? (
@@ -151,7 +179,7 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                   style={[styles.actionButton, styles.rejectButton]}
                   onPress={() => handleRejectTeacher(teacher)}
                 >
-                  <Text style={styles.actionButtonText}>Reject</Text>
+                  <Text style={styles.actionButtonText}>Delete</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -186,35 +214,6 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         <Text style={styles.sectionTitle}>Children's Learning Progress</Text>
         <Text style={styles.comingSoon}>Learning tracking features coming soon...</Text>
       </View>
-
-      {showDeleteDialog && selectedTeacher && (
-        <View style={styles.deleteDialog}>
-          <Text style={styles.deleteDialogTitle}>Confirm Rejection</Text>
-          <TextInput
-            style={styles.deleteDialogInput}
-            placeholder="Email"
-            value={deleteEmail}
-            onChangeText={setDeleteEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.deleteDialogInput}
-            placeholder="Password"
-            value={deletePassword}
-            onChangeText={setDeletePassword}
-            secureTextEntry
-          />
-          <View style={styles.deleteDialogButtons}>
-            <TouchableOpacity style={styles.deleteDialogButton} onPress={handleConfirmDelete}>
-              <Text style={styles.deleteDialogButtonText}>Confirm</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteDialogButton} onPress={handleCancelDelete}>
-              <Text style={styles.deleteDialogButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </ScrollView>
   );
 };
@@ -367,12 +366,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+    paddingBottom: 350, // Added 100 more (250 + 100)
   },
   deleteDialogTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    color: '#fff', // Changed from '#333' to white
+    marginBottom: 20, // Reverted back to 20
     textAlign: 'center',
   },
   deleteDialogInput: {
@@ -382,19 +382,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 15,
-    marginBottom: 15,
+    marginBottom: 45, // Tripled from 15
     backgroundColor: '#fff',
   },
   deleteDialogButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '80%',
+    marginTop: 10, // Reverted back to 10
   },
   deleteDialogButton: {
     backgroundColor: '#4F8EF7',
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,
+    marginHorizontal: 10, // Reverted back to 10
   },
   deleteDialogButtonText: {
     color: '#fff',
