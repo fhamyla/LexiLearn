@@ -98,8 +98,8 @@ export const createUserWithEmail = async (email, password, userData) => {
       const userDoc = await getDoc(userRef);
       
       if (!userDoc.exists()) {
-        // Orphaned Firebase Auth user - suggest cleanup
-        errorMessage = 'An account with this email exists but has no data. Please try signing in or contact support to reset your account.';
+        // Auth record without Firestore doc -> previously deleted account
+        errorMessage = 'This email was previously used and the account has been deleted. Please create a new account using a different email.';
       } else {
         errorMessage = 'An account with this email already exists. Please use a different email or try signing in.';
       }
