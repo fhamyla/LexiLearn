@@ -36,6 +36,7 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const [recentActivities, setRecentActivities] = useState<LearningActivity[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sectionFilter, setSectionFilter] = useState<'learning' | 'improvements'>('learning');
 
   useEffect(() => {
     console.log('UserDashboard mounted, onLogout prop:', !!onLogout);
@@ -156,6 +157,10 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     Alert.alert('Message', 'Message details would be shown here');
   };
 
+  const handleOpenLibrary = () => {
+    Alert.alert('Library', 'Open Learning Library');
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -168,8 +173,9 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       </View>
 
 
-      
-
+      <TouchableOpacity style={styles.bookButton} onPress={handleOpenLibrary}>
+        <Text style={styles.bookButtonText}>📚 Learning Library</Text>
+      </TouchableOpacity>
       
       {childProgress && (
         <View style={styles.section}>
@@ -197,75 +203,164 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         </View>
       )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Activities</Text>
-        {loading ? (
-          <Text style={styles.loadingText}>Loading...</Text>
-        ) : recentActivities.length === 0 ? (
-          <Text style={styles.emptyText}>No activities found</Text>
-        ) : (
-          recentActivities.map((activity) => (
-            <View key={activity.id} style={styles.activityCard}>
-              <Text style={styles.activityTitle}>{activity.title}</Text>
-              <Text style={styles.activityCategory}>{activity.category}</Text>
-              <Text style={styles.activityDate}>{activity.date}</Text>
-              {activity.completed ? (
-                <View style={styles.completedInfo}>
-                  <Text style={styles.scoreText}>Score: {activity.score}%</Text>
-                  <Text style={styles.completedText}>✓ Completed</Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.startButton}
-                  onPress={() => handleStartActivity(activity.id)}
-                >
-                  <Text style={styles.startButtonText}>Start Activity</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ))
-        )}
-      </View>
+      
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Messages ({messages.filter(m => !m.read).length} unread)</Text>
-        {loading ? (
-          <Text style={styles.loadingText}>Loading...</Text>
-        ) : messages.length === 0 ? (
-          <Text style={styles.emptyText}>No messages</Text>
-        ) : (
-          messages.map((message) => (
+      {childProgress && (
+        <View style={styles.section}>
+          <View style={styles.sectionFilterContainer}>
             <TouchableOpacity
-              key={message.id}
-              style={[styles.messageCard, !message.read && styles.unreadMessage]}
-              onPress={() => handleViewMessage(message.id)}
+              style={[styles.sectionFilterButton, sectionFilter === 'learning' && styles.sectionFilterButtonActive]}
+              onPress={() => setSectionFilter('learning')}
             >
-              <Text style={styles.messageFrom}>{message.from}</Text>
-              <Text style={styles.messageSubject}>{message.subject}</Text>
-              <Text style={styles.messageDate}>{message.date}</Text>
-              {!message.read && <View style={styles.unreadDot} />}
+              <Text style={[styles.sectionFilterButtonText, sectionFilter === 'learning' && styles.sectionFilterButtonTextActive]}>
+                Learning Journey
+              </Text>
             </TouchableOpacity>
-          ))
-        )}
-      </View>
+            <TouchableOpacity
+              style={[styles.sectionFilterButton, sectionFilter === 'improvements' && styles.sectionFilterButtonActive]}
+              onPress={() => setSectionFilter('improvements')}
+            >
+              <Text style={[styles.sectionFilterButtonText, sectionFilter === 'improvements' && styles.sectionFilterButtonTextActive]}>
+                Improvements Bar
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionText}>View Progress Report</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionText}>Contact Teacher</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionText}>Schedule Meeting</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionButton}>
-            <Text style={styles.quickActionText}>Learning Resources</Text>
-          </TouchableOpacity>
+          {sectionFilter === 'learning' && (
+            <View>
+              <Text style={styles.sectionTitle}>Learning Journey for {childProgress.childName}</Text>
+
+              <View style={styles.learningJourneyContainer}>
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>📚 Reading</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Basic Phonics</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '100%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>✅ Completed</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Sight Words</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '75%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>🔄 In Progress</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Reading Comprehension</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '25%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>🔢 Math</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Number Recognition</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '100%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>✅ Completed</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Basic Addition</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '60%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>🔄 In Progress</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Subtraction</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>🤝 Social Skills</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Eye Contact</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '80%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>🔄 In Progress</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Turn Taking</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '45%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>🔄 In Progress</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Emotion Recognition</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.overallProgress}>
+                  <Text style={styles.overallTitle}>Overall Progress</Text>
+                  <View style={styles.overallBar}>
+                    <View style={[styles.overallFill, { width: '65%' }]} />
+                  </View>
+                  <Text style={styles.overallPercentage}>65% Complete</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {sectionFilter === 'improvements' && (
+            <View>
+              <Text style={styles.sectionTitle}>Improvements for {childProgress.childName}</Text>
+              <View style={styles.improvementsContainer}>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Reading Progress</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '75%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>75%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Writing Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '60%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>60%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Math Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '85%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>85%</Text>
+                </View>
+
+                <View style={styles.overallProgress}>
+                  <Text style={styles.overallTitle}>Overall Improvements</Text>
+                  <View style={styles.overallBar}>
+                    <View style={[styles.overallFill, { width: '73%' }]} />
+                  </View>
+                  <Text style={styles.overallPercentage}>73% Complete</Text>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 };
@@ -485,6 +580,136 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
+    textAlign: 'center',
+  },
+  bookButton: {
+    backgroundColor: '#4F8EF7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  bookButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sectionFilterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+    width: '100%',
+  },
+  sectionFilterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
+  },
+  sectionFilterButtonActive: {
+    backgroundColor: '#4F8EF7',
+    borderColor: '#4F8EF7',
+  },
+  sectionFilterButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#333',
+  },
+  sectionFilterButtonTextActive: {
+    color: '#fff',
+  },
+  learningJourneyContainer: {
+    marginTop: 15,
+  },
+  categorySection: {
+    marginBottom: 20,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4F8EF7',
+    marginBottom: 10,
+  },
+  lessonProgress: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 10,
+  },
+  lessonItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  lessonName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    flex: 1,
+  },
+  lessonStatus: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  overallProgress: {
+    marginTop: 20,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 10,
+  },
+  overallTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  overallBar: {
+    height: 10,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  overallFill: {
+    height: '100%',
+    backgroundColor: '#4F8EF7',
+    borderRadius: 5,
+  },
+  overallPercentage: {
+    textAlign: 'right',
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  improvementsContainer: {
+    marginTop: 16,
+  },
+  improvementItem: {
+    marginBottom: 15,
+  },
+  improvementLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  improvementTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
     textAlign: 'center',
   },
 
