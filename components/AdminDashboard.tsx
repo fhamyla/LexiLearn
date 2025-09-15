@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
-import { getPendingTeachers, getAllUsers, approveTeacher, rejectTeacher } from '../firebase';
+import { getPendingTeachers, getAllUsers, approveTeacher, rejectTeacher, scheduleDatabaseDeletion, auth, db } from '../firebase';
+import { collection, onSnapshot } from '@firebase/firestore';
 
 interface Teacher {
   id: string;
@@ -41,6 +42,18 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   useEffect(() => {
     console.log('AdminDashboard mounted, onLogout prop:', !!onLogout);
     loadData();
+
+    // Real-time updates: auto-refresh lists when Firestore users change
+    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const users = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
+      setAllUsers(users as User[]);
+      const pending = users.filter((u: any) => u.userType === 'teacher' && u.status === 'pending');
+      setPendingTeachers(pending as Teacher[]);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const loadData = async () => {
@@ -97,34 +110,53 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     }
 
     let emailToDelete = '';
-    let passwordToDelete = '';
+    let passwordToDelete = deletePassword;
 
     if (selectedTeacher) {
       emailToDelete = selectedTeacher.email || '';
-      passwordToDelete = deletePassword;
     } else if (selectedUser) {
       emailToDelete = selectedUser.email || '';
-      passwordToDelete = deletePassword;
     }
 
-    if (!emailToDelete || !passwordToDelete) {
-      Alert.alert('Error', 'Please enter both email and password');
+    // Only require email; if no password, schedule Firestore-only deletion in 60s
+    if (!emailToDelete) {
+      Alert.alert('Error', 'Please enter the email');
       return;
     }
 
     try {
-      const result = await rejectTeacher(emailToDelete, passwordToDelete);
-      if (result.success) {
-        Alert.alert('Success', result.message);
-        setShowDeleteDialog(false);
-        setDeleteEmail('');
-        setDeletePassword('');
-        setSelectedTeacher(null);
-        setSelectedUser(null);
-    loadData(); // Reload data
+      if (passwordToDelete) {
+        const result = await rejectTeacher(emailToDelete, passwordToDelete);
+        if (result.success) {
+          Alert.alert('Success', result.message);
+        } else {
+          Alert.alert('Error', result.message);
+          return;
+        }
       } else {
-        Alert.alert('Error', result.message);
+        const result = await scheduleDatabaseDeletion(emailToDelete, 60000);
+        if (result.success) {
+          Alert.alert('Scheduled', result.message);
+        } else {
+          Alert.alert('Error', result.message);
+          return;
+        }
       }
+      // Optimistically remove from local state
+      setAllUsers(prev => prev.filter(u => (u.email || '') !== emailToDelete));
+      setPendingTeachers(prev => prev.filter(t => (t.email || '') !== emailToDelete));
+
+      // Close dialog and clear fields
+      setShowDeleteDialog(false);
+      setDeleteEmail('');
+      setDeletePassword('');
+      setSelectedTeacher(null);
+      setSelectedUser(null);
+
+      // Immediate refresh; real-time listener will keep lists updated
+      loadData();
+
+      // Removed auto-logout to avoid logging out admin when deleting other accounts
     } catch (error) {
       Alert.alert('Error', 'Failed to delete account');
     }
@@ -219,13 +251,7 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          <TextInput
-            style={styles.deleteDialogInput}
-            placeholder="Password"
-            value={deletePassword}
-            onChangeText={setDeletePassword}
-            secureTextEntry
-          />
+          {/* Password field removed: admin path uses Cloud Function if password omitted */}
           <View style={styles.deleteDialogButtons}>
             <TouchableOpacity style={styles.deleteDialogButton} onPress={handleConfirmDelete}>
               <Text style={styles.deleteDialogButtonText}>Confirm</Text>

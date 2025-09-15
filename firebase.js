@@ -1,6 +1,7 @@
 import { initializeApp } from '@firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, sendPasswordResetEmail } from '@firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs, deleteDoc } from '@firebase/firestore';
+import { getFunctions, httpsCallable } from '@firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
@@ -28,6 +29,8 @@ try {
 
 const auth = getAuth(app);
 const db = getFirestore(app);
+// Explicitly set region to avoid "not-found" if deployed outside default
+const functions = getFunctions(app, 'us-central1');
 
 // Firebase Authentication functions
 export const createUserWithEmail = async (email, password, userData) => {
@@ -136,6 +139,12 @@ export const signInUser = async (email, password) => {
     }
     
     const userData = userDoc.data();
+    if (userData && userData.disabled) {
+      return {
+        success: false,
+        message: 'This account is scheduled for deletion and is temporarily disabled.'
+      };
+    }
     
     return { 
       success: true, 
@@ -311,33 +320,143 @@ export const approveTeacher = async (email) => {
 
 export const rejectTeacher = async (email, password) => {
   try {
-    // First, sign in as the user to get their account
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    // Now delete the user's own account (like email verification)
-    await user.delete();
-    
-    // Also delete from Firestore
-    const userRef = doc(db, 'users', email);
-    await deleteDoc(userRef);
-    
-    return { 
-      success: true, 
-      message: 'Account has been completely deleted from both database and Firebase Authentication.' 
-    };
+    if (password) {
+      // Client-side fallback: sign in as the user, then delete
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      await user.delete();
+      const userRef = doc(db, 'users', email);
+      await deleteDoc(userRef);
+      return { success: true, message: 'Account has been completely deleted from both database and Firebase Authentication.' };
+    } else {
+      // Admin path (requires Cloud Functions deployment and Blaze plan)
+      const deleteUserFn = httpsCallable(functions, 'deleteUser');
+      const response = await deleteUserFn({ email });
+      const data = response && response.data ? response.data : response;
+      if (data && data.success) {
+        const userRef = doc(db, 'users', email);
+        await deleteDoc(userRef);
+        return { success: true, message: data.message || 'Account deleted successfully.' };
+      }
+      return { success: false, message: (data && data.message) || 'Failed to delete account' };
+    }
   } catch (error) {
     let errorMessage = 'Failed to delete account';
-    
-    if (error.code === 'auth/user-not-found') {
-      errorMessage = 'No account found with this email address.';
-    } else if (error.code === 'auth/wrong-password') {
-      errorMessage = 'Incorrect password.';
-    } else if (error.code === 'auth/invalid-email') {
-      errorMessage = 'Please enter a valid email address.';
+    // Prefer Firebase Functions HttpsError details if available
+    if (error && error.message) {
+      errorMessage = error.message;
     }
-    
+    if (error && error.code === 'functions/not-found') {
+      errorMessage = 'Delete function not found. Make sure it is deployed.';
+    }
+    if (error && error.code === 'functions/unauthenticated') {
+      errorMessage = 'You must be signed in as admin to delete accounts.';
+    }
+    if (error && error.code === 'auth/wrong-password') {
+      errorMessage = 'Incorrect password.';
+    }
+    if (error && error.code === 'auth/user-not-found') {
+      errorMessage = 'No account found with this email address.';
+    }
     return { success: false, message: errorMessage };
+  }
+};
+
+// Countdown and backend-backed full account deletion (Auth + Firestore)
+export const confirmAccountDeletionWithCountdown = async (email, seconds = 60, adminCreds) => {
+  try {
+    // Optional: mark Firestore doc disabled immediately so sign-in is blocked during countdown
+    try {
+      const userRef = doc(db, 'users', email);
+      await setDoc(
+        userRef,
+        { disabled: true, deletionScheduledAt: new Date(), deletionInSeconds: seconds },
+        { merge: true }
+      );
+    } catch (_err) {}
+
+    // Countdown on client; after it elapses, call backend to delete Auth and Firestore
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, seconds) * 1000));
+
+    const deleteUserFn = httpsCallable(functions, 'deleteUser');
+    const payload = adminCreds && adminCreds.email && adminCreds.password
+      ? { email, adminEmail: adminCreds.email, adminPassword: adminCreds.password }
+      : { email };
+    const response = await deleteUserFn(payload);
+    const data = response && response.data ? response.data : response;
+    if (data && data.success) {
+      return { success: true, message: data.message || 'Account deleted successfully.' };
+    }
+    return { success: false, message: (data && data.message) || 'Failed to delete account' };
+  } catch (error) {
+    let errorMessage = 'Failed to delete account';
+    if (error && error.message) errorMessage = error.message;
+    return { success: false, message: errorMessage };
+  }
+};
+
+// Schedule Firestore-only deletion without Blaze/Cloud Functions
+export const scheduleDatabaseDeletion = async (email, delayMs = 60000) => {
+  try {
+    const userRef = doc(db, 'users', email);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      return { success: false, message: 'User not found' };
+    }
+
+    // Mark as disabled and record schedule metadata
+    await setDoc(
+      userRef,
+      {
+        disabled: true,
+        deletionScheduledAt: new Date(),
+        deletionInSeconds: Math.round(delayMs / 1000),
+      },
+      { merge: true }
+    );
+
+    setTimeout(async () => {
+      try {
+        await deleteDoc(userRef);
+      } catch (_err) {
+        // Silent failure: client may be closed; deletion won't run
+      }
+    }, delayMs);
+
+    return {
+      success: true,
+      message: `Account scheduled for deletion in ${Math.round(delayMs / 1000)} seconds`,
+    };
+  } catch (error) {
+    return { success: false, message: 'Failed to schedule deletion' };
+  }
+};
+
+export const cleanupScheduledDeletions = async (graceSeconds = 60) => {
+  try {
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
+    const now = Date.now();
+    let deleted = 0;
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      if (!data || !data.deletionScheduledAt) continue;
+      const scheduledAt = data.deletionScheduledAt instanceof Date
+        ? data.deletionScheduledAt.getTime()
+        : (data.deletionScheduledAt.seconds ? data.deletionScheduledAt.seconds * 1000 : Number(data.deletionScheduledAt));
+      const waitMs = (data.deletionInSeconds ? data.deletionInSeconds * 1000 : graceSeconds * 1000);
+      if (Number.isFinite(scheduledAt) && now - scheduledAt >= waitMs) {
+        try {
+          await deleteDoc(doc(db, 'users', docSnap.id));
+          deleted += 1;
+        } catch (_err) {
+          // Skip failed deletions
+        }
+      }
+    }
+    return { success: true, deleted };
+  } catch (error) {
+    return { success: false, message: 'Cleanup failed' };
   }
 };
 
@@ -385,3 +504,41 @@ export const checkTeacherApproval = async (email) => {
 };
 
 export { auth, db }; 
+
+// Self-deletion: run as currently signed-in user, with 60s countdown
+export const confirmOwnAccountDeletionWithCountdown = async (seconds = 60) => {
+  const user = auth.currentUser;
+  if (!user || !user.email) {
+    return { success: false, message: 'No signed-in user' };
+  }
+  const email = user.email;
+  try {
+    try {
+      const userRef = doc(db, 'users', email);
+      await setDoc(
+        userRef,
+        { disabled: true, deletionScheduledAt: new Date(), deletionInSeconds: seconds },
+        { merge: true }
+      );
+    } catch (_err) {}
+
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, seconds) * 1000));
+
+    // Delete Firestore first
+    try {
+      await deleteDoc(doc(db, 'users', email));
+    } catch (_err) {}
+
+    // Then delete the Auth user as self
+    await user.delete();
+    return { success: true, message: 'Account deleted from Auth and Firestore' };
+  } catch (error) {
+    let errorMessage = 'Failed to delete account';
+    if (error && error.code === 'auth/requires-recent-login') {
+      errorMessage = 'Please reauthenticate and try again to delete your account.';
+    } else if (error && error.message) {
+      errorMessage = error.message;
+    }
+    return { success: false, message: errorMessage };
+  }
+};

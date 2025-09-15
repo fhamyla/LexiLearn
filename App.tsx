@@ -1,14 +1,34 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import LoginScreen from './components/LoginScreen';
 import SignUpScreen from './components/SignUpScreen';
 import AdminDashboard from './components/AdminDashboard';
 import ModeratorDashboard from './components/ModeratorDashboard';
 import UserDashboard from './components/UserDashboard';
+import { cleanupScheduledDeletions } from './firebase';
 
 export default function App() {
   const [showSignUp, setShowSignUp] = useState(false);
   const [userType, setUserType] = useState<'admin' | 'moderator' | 'user' | null>(null);
+
+  useEffect(() => {
+    // Run cleanup on app start and then periodically
+    let isMounted = true;
+    const runCleanup = async () => {
+      try {
+        const result = await cleanupScheduledDeletions(60);
+        if (__DEV__) {
+          console.log('Cleanup result:', result);
+        }
+      } catch (_err) {}
+    };
+    runCleanup();
+    const interval = setInterval(runCleanup, 60000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleLogout = () => {
     console.log('Logout called, setting userType to null');
