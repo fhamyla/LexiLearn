@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
-import { getPendingTeachers, getAllUsers, approveTeacher, rejectTeacher, scheduleDatabaseDeletion, auth, db } from '../firebase';
+import { getPendingTeachers, getAllUsers, getAllStudents, approveTeacher, rejectTeacher, scheduleDatabaseDeletion, auth, db } from '../firebase';
 import { collection, onSnapshot } from '@firebase/firestore';
 
 interface Teacher {
@@ -22,12 +22,14 @@ interface User {
   childName?: string;
   childAge?: number;
   severity?: string;
+  createdBy?: string;
 }
 
 const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   console.log('AdminDashboard rendered, onLogout:', !!onLogout);
   const [pendingTeachers, setPendingTeachers] = useState<Teacher[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
@@ -44,27 +46,36 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     loadData();
 
     // Real-time updates: auto-refresh lists when Firestore users change
-    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const users = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
       setAllUsers(users as User[]);
       const pending = users.filter((u: any) => u.userType === 'teacher' && u.status === 'pending');
       setPendingTeachers(pending as Teacher[]);
     });
 
+    // Real-time updates for students collection
+    const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
+      const students = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
+      setAllStudents(students);
+    });
+
     return () => {
-      unsubscribe();
+      unsubscribeUsers();
+      unsubscribeStudents();
     };
   }, []);
 
   const loadData = async () => {
     try {
       // Load real data from Firebase
-      const [teachers, users] = await Promise.all([
+      const [teachers, users, students] = await Promise.all([
         getPendingTeachers(),
         getAllUsers(),
+        getAllStudents(),
       ]);
       setPendingTeachers(teachers as Teacher[]);
       setAllUsers(users as User[]);
+      setAllStudents(students);
     } catch (error) {
       console.error('Error loading data:', error);
       Alert.alert('Error', 'Failed to load data');
@@ -182,12 +193,27 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   };
 
   const getChildrenWithSeverity = () => {
+    // Get guardian students (from users collection)
     const guardianUsers = allUsers.filter(user => user.userType === 'guardian');
     
+    // Get directly added students (from students collection)
+    const directStudents = allStudents.map(student => ({
+      id: student.id,
+      firstName: 'Moderator Added', // Indicate this was added by moderator
+      lastName: '',
+      childName: student.childName,
+      childAge: student.childAge,
+      severity: student.severity,
+      createdBy: student.createdBy || 'moderator'
+    }));
+    
+    // Combine both types of students
+    const allChildren = [...guardianUsers, ...directStudents];
+    
     if (severityFilter === 'all') {
-      return guardianUsers;
+      return allChildren;
     }
-    return guardianUsers.filter(user => user.severity === severityFilter);
+    return allChildren.filter(child => child.severity === severityFilter);
   };
 
   const getFilteredUsersWithSearch = () => {
@@ -452,9 +478,14 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         ) : (
           getChildrenWithSeverityAndSearch().map((child) => (
             <View key={child.id} style={styles.childCard}>
-              <Text style={styles.childName}>{child.firstName} {child.lastName}</Text>
+              <Text style={styles.childName}>
+                {child.createdBy === 'moderator' ? 'Moderator Added Student' : `${child.firstName} ${child.lastName}`}
+              </Text>
               <Text style={styles.childInfo}>Child: {child.childName} (Age: {child.childAge})</Text>
               <Text style={styles.severityInfo}>Severity: {child.severity}</Text>
+              {child.createdBy === 'moderator' && (
+                <Text style={styles.moderatorAddedInfo}>Added by Moderator</Text>
+              )}
               
               {/* Learning Journey per child */}
               <View style={styles.learningJourneyContainer}>
@@ -598,9 +629,14 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         ) : (
           getChildrenWithSeverityAndSearch().map((child) => (
             <View key={child.id} style={styles.childCard}>
-              <Text style={styles.childName}>{child.firstName} {child.lastName}</Text>
+              <Text style={styles.childName}>
+                {child.createdBy === 'moderator' ? 'Moderator Added Student' : `${child.firstName} ${child.lastName}`}
+              </Text>
               <Text style={styles.childInfo}>Child: {child.childName} (Age: {child.childAge})</Text>
               <Text style={styles.severityInfo}>Severity: {child.severity}</Text>
+              {child.createdBy === 'moderator' && (
+                <Text style={styles.moderatorAddedInfo}>Added by Moderator</Text>
+              )}
               
               {/* Improvements per child */}
               <View style={styles.improvementsContainer}>
@@ -1026,6 +1062,13 @@ const styles = StyleSheet.create({
   },
   sectionFilterButtonTextActive: {
     color: '#fff',
+  },
+  moderatorAddedInfo: {
+    fontSize: 12,
+    color: '#28a745',
+    marginTop: 4,
+    fontStyle: 'italic',
+    fontWeight: '500',
   },
 });
 

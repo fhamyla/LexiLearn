@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
-import { getAllUsers } from '../firebase';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import { getAllUsers, getAllStudents, addStudentDirectly } from '../firebase';
 
 interface Student {
   id: string;
@@ -10,6 +11,7 @@ interface Student {
   childAge?: number;
   severity?: string;
   progress?: number;
+  createdBy?: string;
 }
 
 interface User {
@@ -39,6 +41,13 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   const [severityFilter, setSeverityFilter] = useState<'all' | 'mild' | 'moderate' | 'severe'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sectionFilter, setSectionFilter] = useState<'learning' | 'improvements'>('learning');
+  
+  // Add Student Modal State
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [newStudentName, setNewStudentName] = useState('');
+  const [newStudentAge, setNewStudentAge] = useState('');
+  const [newStudentSeverity, setNewStudentSeverity] = useState('');
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -47,10 +56,13 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   const loadData = async () => {
     try {
       // Load real data from Firebase
-      const users = await getAllUsers();
+      const [users, directStudents] = await Promise.all([
+        getAllUsers(),
+        getAllStudents(),
+      ]);
       
       // Filter for guardian users and map to Student interface
-      const students: Student[] = users
+      const guardianStudents: Student[] = users
         .filter((user: User) => user.userType === 'guardian')
         .map((user: User) => ({
           id: user.id,
@@ -61,6 +73,19 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
           severity: user.severity,
           progress: 75, // TODO: Calculate from actual progress data
         }));
+
+      // Map directly added students to Student interface
+      const moderatorStudents: Student[] = directStudents.map((student: any) => ({
+        id: student.id,
+        childName: student.childName,
+        childAge: student.childAge,
+        severity: student.severity,
+        progress: student.progress || 0,
+        createdBy: student.createdBy || 'moderator',
+      }));
+
+      // Combine both types of students
+      const students = [...guardianStudents, ...moderatorStudents];
 
       const mockContent: LearningContent[] = [
         {
@@ -154,15 +179,94 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
     loadData(); // Reload data
   };
 
+  const handleAddStudent = () => {
+    setShowAddStudentModal(true);
+  };
+
+  const handleCloseAddStudentModal = () => {
+    setShowAddStudentModal(false);
+    setNewStudentName('');
+    setNewStudentAge('');
+    setNewStudentSeverity('');
+  };
+
+  const handleNewStudentAgeChange = (text: string) => {
+    // Only allow up to 2 digits, no letters or special characters
+    const sanitized = text.replace(/[^0-9]/g, '').slice(0, 2);
+    setNewStudentAge(sanitized);
+  };
+
+  const handleNewStudentNameChange = (text: string) => {
+    // Only allow alphabetic characters and spaces
+    const nameRegex = /^[A-Za-z\s]*$/;
+    if (text === '' || nameRegex.test(text)) {
+      setNewStudentName(text);
+    }
+  };
+
+  const handleSaveStudent = async () => {
+    // Validate required fields
+    if (!newStudentName.trim()) {
+      Alert.alert('Error', 'Please enter the student\'s name');
+      return;
+    }
+    if (!newStudentAge) {
+      Alert.alert('Error', 'Please enter the student\'s age');
+      return;
+    }
+    if (!newStudentSeverity) {
+      Alert.alert('Error', 'Please select the severity level');
+      return;
+    }
+
+    setIsAddingStudent(true);
+
+    try {
+      // Use Firebase function to add student directly
+      const result = await addStudentDirectly({
+        childName: newStudentName.trim(),
+        childAge: parseInt(newStudentAge),
+        severity: newStudentSeverity,
+      });
+
+      if (result.success) {
+        // Create a local student object for immediate UI update
+        const newStudent: Student = {
+          id: result.studentId || `student_${Date.now()}`,
+          childName: newStudentName.trim(),
+          childAge: parseInt(newStudentAge),
+          severity: newStudentSeverity,
+          progress: 0,
+        };
+
+        setStudents(prevStudents => [...prevStudents, newStudent]);
+        Alert.alert('Success', 'Student added successfully!');
+        handleCloseAddStudentModal();
+      } else {
+        Alert.alert('Error', result.message || 'Failed to add student');
+      }
+    } catch (error) {
+      console.error('Error adding student:', error);
+      Alert.alert('Error', 'Failed to add student. Please try again.');
+    } finally {
+      setIsAddingStudent(false);
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Moderator Dashboard</Text>
-        {onLogout && (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.addStudentButton} onPress={handleAddStudent}>
+            <Text style={styles.addStudentButtonText}>+ Add Student</Text>
           </TouchableOpacity>
-        )}
+          {onLogout && (
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
 
@@ -427,6 +531,72 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         )}
       </View>
       )}
+
+      {/* Add Student Modal */}
+      <Modal
+        visible={showAddStudentModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseAddStudentModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add New Student</Text>
+            
+            <Text style={styles.modalLabel}>Student Name *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter student's name"
+              value={newStudentName}
+              onChangeText={handleNewStudentNameChange}
+              autoCapitalize="words"
+            />
+            
+            <Text style={styles.modalLabel}>Age *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter age"
+              value={newStudentAge}
+              onChangeText={handleNewStudentAgeChange}
+              keyboardType="numeric"
+              maxLength={2}
+            />
+            
+            <Text style={styles.modalLabel}>Dyslexia Severity *</Text>
+            <View style={styles.modalPickerContainer}>
+              <Picker
+                selectedValue={newStudentSeverity}
+                onValueChange={setNewStudentSeverity}
+                style={styles.modalPicker}
+              >
+                <Picker.Item label="Select severity" value="" />
+                <Picker.Item label="Mild" value="mild" />
+                <Picker.Item label="Moderate" value="moderate" />
+                <Picker.Item label="Severe" value="severe" />
+                <Picker.Item label="Profound" value="profound" />
+              </Picker>
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton} 
+                onPress={handleCloseAddStudentModal}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalSaveButton, isAddingStudent && styles.modalSaveButtonDisabled]} 
+                onPress={handleSaveStudent}
+                disabled={isAddingStudent}
+              >
+                <Text style={styles.modalSaveButtonText}>
+                  {isAddingStudent ? 'Adding...' : 'Add Student'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -447,12 +617,28 @@ const styles = StyleSheet.create({
     maxWidth: 600,
     marginBottom: 32,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   title: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#4F8EF7',
     textAlign: 'center',
     flex: 1,
+  },
+  addStudentButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  addStudentButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   logoutButton: {
     backgroundColor: '#dc3545',
@@ -710,6 +896,92 @@ const styles = StyleSheet.create({
   },
   sectionFilterButtonTextActive: {
     color: '#fff',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4F8EF7',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  modalInput: {
+    borderWidth: 1.5,
+    borderColor: '#E0E6ED',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#F7FAFC',
+    marginBottom: 4,
+  },
+  modalPickerContainer: {
+    borderWidth: 1.5,
+    borderColor: '#E0E6ED',
+    borderRadius: 8,
+    backgroundColor: '#F7FAFC',
+    marginBottom: 4,
+  },
+  modalPicker: {
+    height: 50,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: '#6c757d',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: '#28a745',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.7,
+  },
+  modalSaveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

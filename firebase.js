@@ -308,6 +308,18 @@ export const getAllUsers = async () => {
   }
 };
 
+// Get all students from the 'students' collection
+export const getAllStudents = async () => {
+  try {
+    const studentsRef = collection(db, 'students');
+    const querySnapshot = await getDocs(studentsRef);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error('Error loading students:', error);
+    return [];
+  }
+};
+
 export const approveTeacher = async (email) => {
   try {
     const userRef = doc(db, 'users', email);
@@ -500,6 +512,64 @@ export const checkTeacherApproval = async (email) => {
     };
   } catch (error) {
     return { success: false, message: 'Failed to check approval status' };
+  }
+};
+
+// Add student directly without guardian signup
+export const addStudentDirectly = async (studentData) => {
+  try {
+    const { childName, childAge, severity } = studentData;
+    
+    // Validate required fields
+    if (!childName || !childAge || !severity) {
+      return { success: false, message: 'Missing required fields: childName, childAge, and severity are required' };
+    }
+    
+    // Create a unique ID for the student
+    const studentId = `student_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create student document in Firestore
+    const studentRef = doc(db, 'students', studentId);
+    await setDoc(studentRef, {
+      id: studentId,
+      childName: childName.trim(),
+      childAge: parseInt(childAge),
+      severity: severity,
+      progress: 0,
+      createdAt: new Date(),
+      createdBy: 'moderator', // Track who created this student
+      status: 'active',
+      // Add empty learning progress structure
+      learningProgress: {
+        reading: {
+          basicPhonics: { completed: false, progress: 0 },
+          sightWords: { completed: false, progress: 0 },
+          readingComprehension: { completed: false, progress: 0 }
+        },
+        math: {
+          numberRecognition: { completed: false, progress: 0 },
+          basicAddition: { completed: false, progress: 0 },
+          subtraction: { completed: false, progress: 0 }
+        },
+        socialSkills: {
+          eyeContact: { completed: false, progress: 0 },
+          turnTaking: { completed: false, progress: 0 },
+          emotionRecognition: { completed: false, progress: 0 }
+        }
+      }
+    });
+    
+    return { 
+      success: true, 
+      message: 'Student added successfully',
+      studentId: studentId
+    };
+  } catch (error) {
+    console.error('Error adding student:', error);
+    return { 
+      success: false, 
+      message: 'Failed to add student: ' + error.message 
+    };
   }
 };
 
