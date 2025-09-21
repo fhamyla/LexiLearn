@@ -525,8 +525,18 @@ export const addStudentDirectly = async (studentData) => {
       return { success: false, message: 'Missing required fields: childName, childAge, and severity are required' };
     }
     
-    // Create a unique ID for the student
-    const studentId = `student_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Create a more unique ID for the student using crypto.randomUUID if available, fallback to enhanced timestamp + random
+    let studentId;
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      studentId = `student_${crypto.randomUUID()}`;
+    } else {
+      // Enhanced fallback with more randomness
+      const timestamp = Date.now();
+      const randomPart1 = Math.random().toString(36).substr(2, 9);
+      const randomPart2 = Math.random().toString(36).substr(2, 9);
+      const processId = Math.floor(Math.random() * 10000);
+      studentId = `student_${timestamp}_${randomPart1}_${randomPart2}_${processId}`;
+    }
     
     // Create student document in Firestore
     const studentRef = doc(db, 'students', studentId);
@@ -569,6 +579,75 @@ export const addStudentDirectly = async (studentData) => {
     return { 
       success: false, 
       message: 'Failed to add student: ' + error.message 
+    };
+  }
+};
+
+// Add guardian's child to students collection
+export const addGuardianChildToStudents = async (childData, guardianEmail) => {
+  try {
+    const { childName, childAge, severity } = childData;
+    
+    // Validate required fields
+    if (!childName || !childAge || !severity) {
+      return { success: false, message: 'Missing required fields: childName, childAge, and severity are required' };
+    }
+    
+    // Create a more unique ID for the student using crypto.randomUUID if available, fallback to enhanced timestamp + random
+    let studentId;
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      studentId = `student_${crypto.randomUUID()}`;
+    } else {
+      // Enhanced fallback with more randomness
+      const timestamp = Date.now();
+      const randomPart1 = Math.random().toString(36).substr(2, 9);
+      const randomPart2 = Math.random().toString(36).substr(2, 9);
+      const processId = Math.floor(Math.random() * 10000);
+      studentId = `student_${timestamp}_${randomPart1}_${randomPart2}_${processId}`;
+    }
+    
+    // Create student document in Firestore
+    const studentRef = doc(db, 'students', studentId);
+    await setDoc(studentRef, {
+      id: studentId,
+      childName: childName.trim(),
+      childAge: parseInt(childAge),
+      severity: severity,
+      progress: 0,
+      createdAt: new Date(),
+      createdBy: 'guardian', // Track that this was created by a guardian
+      guardianEmail: guardianEmail, // Link to guardian's email
+      status: 'active',
+      // Add empty learning progress structure
+      learningProgress: {
+        reading: {
+          basicPhonics: { completed: false, progress: 0 },
+          sightWords: { completed: false, progress: 0 },
+          readingComprehension: { completed: false, progress: 0 }
+        },
+        math: {
+          numberRecognition: { completed: false, progress: 0 },
+          basicAddition: { completed: false, progress: 0 },
+          subtraction: { completed: false, progress: 0 }
+        },
+        socialSkills: {
+          eyeContact: { completed: false, progress: 0 },
+          turnTaking: { completed: false, progress: 0 },
+          emotionRecognition: { completed: false, progress: 0 }
+        }
+      }
+    });
+    
+    return { 
+      success: true, 
+      message: 'Child added to students collection successfully',
+      studentId: studentId
+    };
+  } catch (error) {
+    console.error('Error adding guardian child to students:', error);
+    return { 
+      success: false, 
+      message: 'Failed to add child to students collection: ' + error.message 
     };
   }
 };

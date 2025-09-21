@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { createUserWithEmail, checkEmailExists, checkEmailVerification } from '../firebase';
+import { createUserWithEmail, checkEmailExists, checkEmailVerification, addGuardianChildToStudents } from '../firebase';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const nameRegex = /^[A-Za-z\s]*$/;
@@ -204,6 +204,27 @@ const SignUpScreen: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       const result = await createUserWithEmail(email, password, userData);
       
       if (result.success) {
+        // If guardian, also add child to students collection
+        if (userType === 'guardian') {
+          try {
+            const childData = {
+              childName,
+              childAge: parseInt(childAge),
+              severity
+            };
+            
+            const studentResult = await addGuardianChildToStudents(childData, email);
+            
+            if (!studentResult.success) {
+              console.warn('Failed to add child to students collection:', studentResult.message);
+              // Don't fail the signup process, just log the warning
+            }
+          } catch (error) {
+            console.warn('Error adding child to students collection:', error);
+            // Don't fail the signup process, just log the warning
+          }
+        }
+
         // Start countdown timer
         setShowTimer(true);
         setVerificationTimer(120);
