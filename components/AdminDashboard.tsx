@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { getPendingTeachers, getAllUsers, getAllStudents, approveTeacher, rejectTeacher, scheduleDatabaseDeletion, auth, db } from '../firebase';
 import { collection, onSnapshot } from '@firebase/firestore';
@@ -53,10 +53,13 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       setPendingTeachers(pending as Teacher[]);
     });
 
-    // Real-time updates for students collection
+    // Real-time updates for students collection - Enhanced for Learning Journey and Improvements Bar
     const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
       const students = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
       setAllStudents(students);
+      
+      // The Learning Journey and Improvements Bar sections will automatically update
+      // because they use getChildrenWithSeverityAndSearch() which depends on allStudents
     });
 
     return () => {
@@ -441,7 +444,7 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
       {sectionFilter === 'learning' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Children's Learning Journey ({getChildrenWithSeverityAndSearch().length})</Text>
+          <Text style={styles.sectionTitle}>Children's Learning Journey ({allStudents.length})</Text>
         
         {/* Severity Filter Buttons */}
         <View style={styles.filterButtons}>
@@ -592,7 +595,7 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
       {sectionFilter === 'improvements' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Improvements Bar ({getChildrenWithSeverityAndSearch().length})</Text>
+          <Text style={styles.sectionTitle}>Improvements Bar ({allStudents.length})</Text>
         
         {/* Severity Filter Buttons */}
         <View style={styles.filterButtons}>

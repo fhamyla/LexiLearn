@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { getAllUsers, getAllStudents, addStudentDirectly } from '../firebase';
+import { collection, onSnapshot } from '@firebase/firestore';
+import { db } from '../firebase';
 
 interface Student {
   id: string;
@@ -51,29 +53,11 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
 
   useEffect(() => {
     loadData();
-  }, []);
 
-  const loadData = async () => {
-    try {
-      // Load real data from Firebase
-      const [users, directStudents] = await Promise.all([
-        getAllUsers(),
-        getAllStudents(),
-      ]);
+    // Real-time updates for students collection only
+    const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
+      const directStudents = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
       
-      // Filter for guardian users and map to Student interface
-      const guardianStudents: Student[] = users
-        .filter((user: User) => user.userType === 'guardian')
-        .map((user: User) => ({
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          childName: user.childName,
-          childAge: user.childAge,
-          severity: user.severity,
-          progress: 75, // TODO: Calculate from actual progress data
-        }));
-
       // Map directly added students to Student interface
       const moderatorStudents: Student[] = directStudents.map((student: any) => ({
         id: student.id,
@@ -84,8 +68,32 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         createdBy: student.createdBy || 'moderator',
       }));
 
-      // Combine both types of students
-      const students = [...guardianStudents, ...moderatorStudents];
+      // Set only students from the students collection
+      setStudents(moderatorStudents);
+    });
+
+    return () => {
+      unsubscribeStudents();
+    };
+  }, []);
+
+  const loadData = async () => {
+    try {
+      // Load only students from the students collection
+      const directStudents = await getAllStudents();
+      
+      // Map directly added students to Student interface
+      const moderatorStudents: Student[] = directStudents.map((student: any) => ({
+        id: student.id,
+        childName: student.childName,
+        childAge: student.childAge,
+        severity: student.severity,
+        progress: student.progress || 0,
+        createdBy: student.createdBy || 'moderator',
+      }));
+
+      // Set only students from the students collection
+      setStudents(moderatorStudents);
 
       const mockContent: LearningContent[] = [
         {
@@ -111,7 +119,6 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         },
       ];
 
-      setStudents(students);
       setLearningContent(mockContent);
     } catch (error) {
       Alert.alert('Error', 'Failed to load data');
@@ -304,7 +311,7 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
       
       {sectionFilter === 'learning' && (
         <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Children's Learning Journey ({getStudentsWithSeverityAndSearch().length})</Text>
+        <Text style={styles.sectionTitle}>Children's Learning Journey ({students.length})</Text>
         
         {/* Severity Filter Buttons */}
         <View style={styles.filterButtons}>
@@ -451,7 +458,7 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
 
       {sectionFilter === 'improvements' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Improvements Bar ({getStudentsWithSeverityAndSearch().length})</Text>
+          <Text style={styles.sectionTitle}>Improvements Bar ({students.length})</Text>
         
         {/* Severity Filter Buttons */}
         <View style={styles.filterButtons}>
