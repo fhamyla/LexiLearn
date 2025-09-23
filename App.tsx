@@ -6,6 +6,7 @@ import AdminDashboard from './components/AdminDashboard';
 import ModeratorDashboard from './components/ModeratorDashboard';
 import UserDashboard from './components/UserDashboard';
 import { cleanupScheduledDeletions } from './firebase';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function App() {
   const [showSignUp, setShowSignUp] = useState(false);
@@ -54,7 +55,7 @@ export default function App() {
   };
 
   return (
-    <>
+    <SafeAreaProvider>
       {userType ? (
         renderDashboard()
       ) : showSignUp ? (
@@ -77,6 +78,6 @@ export default function App() {
         />
       )}
       <StatusBar style="auto" />
-    </>
+    </SafeAreaProvider>
   );
 }

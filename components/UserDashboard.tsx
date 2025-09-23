@@ -174,7 +174,7 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
 
       <TouchableOpacity style={styles.bookButton} onPress={handleOpenLibrary}>
-        <Text style={styles.bookButtonText}>📚 Learning Library</Text>
+        <Text style={styles.bookButtonText}>Learning Library</Text>
       </TouchableOpacity>
       
       {childProgress && (

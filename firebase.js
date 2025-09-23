@@ -1,5 +1,5 @@
 import { initializeApp } from '@firebase/app';
-import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, sendPasswordResetEmail } from '@firebase/auth';
+import { getAuth, initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, sendPasswordResetEmail } from '@firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs, deleteDoc } from '@firebase/firestore';
 import { getFunctions, httpsCallable } from '@firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,7 +27,10 @@ try {
   }
 }
 
-const auth = getAuth(app);
+// Initialize Auth with React Native persistence so user stays signed in across sessions
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
 const db = getFirestore(app);
 // Explicitly set region to avoid "not-found" if deployed outside default
 const functions = getFunctions(app, 'us-central1');

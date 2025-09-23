@@ -237,16 +237,7 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
       });
 
       if (result.success) {
-        // Create a local student object for immediate UI update
-        const newStudent: Student = {
-          id: result.studentId || `student_${Date.now()}`,
-          childName: newStudentName.trim(),
-          childAge: parseInt(newStudentAge),
-          severity: newStudentSeverity,
-          progress: 0,
-        };
-
-        setStudents(prevStudents => [...prevStudents, newStudent]);
+        // Rely on Firestore onSnapshot to reflect the new student to avoid duplicate keys
         Alert.alert('Success', 'Student added successfully!');
         handleCloseAddStudentModal();
       } else {
@@ -258,6 +249,10 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
     } finally {
       setIsAddingStudent(false);
     }
+  };
+
+  const handleOpenLibrary = () => {
+    Alert.alert('Library', 'Open Learning Library');
   };
 
   return (
@@ -276,7 +271,9 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         </View>
       </View>
 
-
+      <TouchableOpacity style={styles.bookButton} onPress={handleOpenLibrary}>
+        <Text style={styles.bookButtonText}>Learning Library</Text>
+      </TouchableOpacity>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -989,6 +986,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  bookButton: {
+    backgroundColor: '#4F8EF7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  bookButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
