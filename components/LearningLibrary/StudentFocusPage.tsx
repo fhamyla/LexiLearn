@@ -11,10 +11,30 @@ const categoryTitleMap: Record<string, string> = {
   writing: '✍️ Writing',
   spelling: '🔤 Spelling',
   math: '🔢 Math',
-  socialSkills: '🤝 Social Skills',
+  'social skills': '🤝 Social Skills',
 };
 
 const humanizeKey = (key: string) =>
+  key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .toLowerCase();
+
+const titleForCategory = (key: string) => {
+  const norm = key.toLowerCase();
+  return categoryTitleMap[norm] || (norm.charAt(0).toUpperCase() + norm.slice(1));
+};
+
+const getCategoryItems = (learningProgress: any, categoryKey: string) => {
+  const norm = categoryKey.toLowerCase();
+  // Support legacy key 'socialSkills'
+  if (norm === 'social skills') {
+    return learningProgress['social skills'] || learningProgress['socialSkills'] || {};
+  }
+  return learningProgress[norm] || learningProgress[categoryKey] || {};
+};
+
+const prettyItemName = (key: string) =>
   key
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/_/g, ' ')
@@ -22,7 +42,7 @@ const humanizeKey = (key: string) =>
 
 const StudentFocusPage: React.FC<StudentFocusPageProps> = ({ student, selectedCategories }) => {
   const learningProgress = (student && student.learningProgress) || {};
-  const categoriesToShow = selectedCategories.filter((c) => learningProgress[c]);
+  const categoriesToShow = selectedCategories;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -32,8 +52,8 @@ const StudentFocusPage: React.FC<StudentFocusPageProps> = ({ student, selectedCa
         <Text style={styles.emptyText}>No focus areas selected.</Text>
       ) : (
         categoriesToShow.map((categoryKey) => {
-          const title = categoryTitleMap[categoryKey] || humanizeKey(categoryKey);
-          const items = learningProgress[categoryKey] || {};
+          const title = titleForCategory(categoryKey);
+          const items = getCategoryItems(learningProgress, categoryKey);
           const itemKeys = Object.keys(items);
           return (
             <View key={categoryKey} style={styles.section}>
@@ -47,7 +67,7 @@ const StudentFocusPage: React.FC<StudentFocusPageProps> = ({ student, selectedCa
                   const status = item?.completed ? '✅ Completed' : progressPercent > 0 ? '🔄 In Progress' : '⏳ Not Started';
                   return (
                     <View key={itemKey} style={styles.lessonItem}>
-                      <Text style={styles.lessonName}>{humanizeKey(itemKey)}</Text>
+                      <Text style={styles.lessonName}>{prettyItemName(itemKey)}</Text>
                       <View style={styles.progressBar}>
                         <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
                       </View>

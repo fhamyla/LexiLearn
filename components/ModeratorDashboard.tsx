@@ -146,6 +146,13 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
     return students.filter(student => student.severity === severityFilter);
   };
 
+  // Normalize categories for selection and display
+  const normalizeCategory = (key: string) => {
+    const lower = (key || '').toLowerCase();
+    if (lower === 'socialskills' || lower === 'social skills') return 'social skills';
+    return lower;
+  };
+
   const getStudentsWithSeverityAndSearch = () => {
     let filtered = getStudentsWithSeverity();
     
@@ -289,23 +296,29 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   const handleSelectStudent = (student: Student) => {
     setSelectedStudent(student);
     const lp = (student && student.learningProgress) || {};
-    const categories = Object.keys(lp);
-    setAvailableCategories(categories);
-    // Preselect saved focus areas if exist, otherwise all
-    const saved = Array.isArray(student.focusAreas) && student.focusAreas.length > 0 ? student.focusAreas : categories;
-    setSelectedCategories(saved);
+    const rawCategories = Object.keys(lp);
+    const categories = rawCategories.map(normalizeCategory);
+    // Ensure unique after normalization
+    const uniqueCategories = Array.from(new Set(categories));
+    setAvailableCategories(uniqueCategories);
+    // Preselect saved focus areas if exist (normalize), otherwise all
+    const savedRaw = Array.isArray(student.focusAreas) && student.focusAreas.length > 0 ? student.focusAreas : uniqueCategories;
+    const saved = savedRaw.map(normalizeCategory);
+    setSelectedCategories(Array.from(new Set(saved)));
   };
 
   const toggleCategory = (category: string) => {
+    const norm = normalizeCategory(category);
     setSelectedCategories((prev) =>
-      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+      prev.includes(norm) ? prev.filter((c) => c !== norm) : [...prev, norm]
     );
   };
 
   const persistFocusAreas = async (studentId: string, categories: string[]) => {
     try {
+      const normalized = categories.map(normalizeCategory);
       const studentRef = doc(db, 'students', studentId);
-      await setDoc(studentRef, { focusAreas: categories }, { merge: true });
+      await setDoc(studentRef, { focusAreas: normalized }, { merge: true });
     } catch (err) {
       console.error('Failed to save focus areas:', err);
       Alert.alert('Save Failed', 'Could not save focus areas. Please try again.');
@@ -961,18 +974,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     borderRadius: 8,
     padding: 5,
-    flexWrap: 'wrap',
-    rowGap: 8,
   },
   filterButton: {
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
-    margin: 4,
   },
   filterButtonActive: {
     backgroundColor: '#4F8EF7',
-    borderColor: '#4F8EF7',
   },
   filterButtonText: {
     color: '#666',
