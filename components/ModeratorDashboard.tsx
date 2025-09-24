@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { getAllUsers, getAllStudents, addStudentDirectly } from '../firebase';
-import { collection, onSnapshot } from '@firebase/firestore';
+import { addStudentDirectly } from '../firebase';
+import { collection, onSnapshot, query, where, getDocs } from '@firebase/firestore';
 import { db } from '../firebase';
 
 interface Student {
@@ -50,15 +50,17 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   const [newStudentAge, setNewStudentAge] = useState('');
   const [newStudentSeverity, setNewStudentSeverity] = useState('');
   const [isAddingStudent, setIsAddingStudent] = useState(false);
+  // Learning Library Modal State
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
 
   useEffect(() => {
     loadData();
 
-    // Real-time updates for students collection only
-    const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
+    // Real-time updates for moderator-created students only
+    const studentsQuery = query(collection(db, 'students'), where('createdBy', '==', 'moderator'));
+    const unsubscribeStudents = onSnapshot(studentsQuery, (snapshot) => {
       const directStudents = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
       
-      // Map directly added students to Student interface
       const moderatorStudents: Student[] = directStudents.map((student: any) => ({
         id: student.id,
         childName: student.childName,
@@ -68,7 +70,6 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         createdBy: student.createdBy || 'moderator',
       }));
 
-      // Set only students from the students collection
       setStudents(moderatorStudents);
     });
 
@@ -79,10 +80,11 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
 
   const loadData = async () => {
     try {
-      // Load only students from the students collection
-      const directStudents = await getAllStudents();
+      // Load only moderator-created students from the students collection
+      const studentsQuery = query(collection(db, 'students'), where('createdBy', '==', 'moderator'));
+      const querySnapshot = await getDocs(studentsQuery);
+      const directStudents = querySnapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
       
-      // Map directly added students to Student interface
       const moderatorStudents: Student[] = directStudents.map((student: any) => ({
         id: student.id,
         childName: student.childName,
@@ -92,7 +94,6 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         createdBy: student.createdBy || 'moderator',
       }));
 
-      // Set only students from the students collection
       setStudents(moderatorStudents);
 
       const mockContent: LearningContent[] = [
@@ -141,13 +142,24 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
       return filtered;
     }
     
-    const query = searchQuery.toLowerCase();
+    const queryStr = searchQuery.toLowerCase();
     return filtered.filter(student => {
       const guardianName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase();
       const childName = (student.childName || '').toLowerCase();
       
-      return guardianName.includes(query) || childName.includes(query);
+      return guardianName.includes(queryStr) || childName.includes(queryStr);
     });
+  };
+
+  const moderatorCreatedStudents = () => {
+    return students.filter((s) => (s.createdBy || '').toLowerCase() === 'moderator');
+  };
+
+  const getModeratorStudentsWithSearch = () => {
+    const base = moderatorCreatedStudents();
+    if (searchQuery.trim() === '') return base;
+    const queryStr = searchQuery.toLowerCase();
+    return base.filter((student) => (student.childName || '').toLowerCase().includes(queryStr));
   };
 
   const handleLogout = () => {
@@ -252,7 +264,11 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   };
 
   const handleOpenLibrary = () => {
-    Alert.alert('Library', 'Open Learning Library');
+    setShowLibraryModal(true);
+  };
+
+  const handleCloseLibrary = () => {
+    setShowLibraryModal(false);
   };
 
   return (
@@ -596,6 +612,43 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
                 <Text style={styles.modalSaveButtonText}>
                   {isAddingStudent ? 'Adding...' : 'Add Student'}
                 </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Learning Library Modal: show students created by moderators */}
+      <Modal
+        visible={showLibraryModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseLibrary}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Learning Library</Text>
+            <Text style={styles.modalLabel}>Moderator-added Students ({moderatorCreatedStudents().length})</Text>
+
+            {loading ? (
+              <Text style={styles.loadingText}>Loading...</Text>
+            ) : moderatorCreatedStudents().length === 0 ? (
+              <Text style={styles.emptyText}>No moderator-added students</Text>
+            ) : (
+              getModeratorStudentsWithSearch().map((student) => (
+                <View key={student.id} style={styles.studentCard}>
+                  <Text style={styles.studentName}>{student.childName} {student.childAge ? `(Age: ${student.childAge})` : ''}</Text>
+                  <Text style={styles.severityInfo}>Severity: {student.severity}</Text>
+                </View>
+              ))
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton} 
+                onPress={handleCloseLibrary}
+              >
+                <Text style={styles.modalCancelButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
