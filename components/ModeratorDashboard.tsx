@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput,
 import { Picker } from '@react-native-picker/picker';
 import { addStudentDirectly } from '../firebase';
 import { collection, onSnapshot, query, where, getDocs, doc, setDoc } from '@firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import StudentFocusPage from './LearningLibrary/StudentFocusPage';
 
 interface Student {
@@ -62,50 +62,97 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
 
   useEffect(() => {
     loadData();
+  }, []);
 
-    // Real-time updates for moderator-created students only
-    const studentsQuery = query(collection(db, 'students'), where('createdBy', '==', 'moderator'));
-    const unsubscribeStudents = onSnapshot(studentsQuery, (snapshot) => {
-      const directStudents = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
-      
-      const moderatorStudents: Student[] = directStudents.map((student: any) => ({
+  const autoBackfillDoneRef = React.useRef<boolean>(false);
+
+  const backfillMissingOwnershipForDocs = async (docsToCheck: any[], uid: string | null, email: string | null) => {
+    if (!uid && !email) return;
+    let updated = 0;
+    for (const d of docsToCheck) {
+      const data: any = d.data ? d.data() : d; // support both docSnap and raw
+      if (!data || data.createdBy !== 'moderator') continue;
+      const hasUid = !!data.createdByUid;
+      const hasEmail = !!data.createdByEmail;
+      if (!hasUid || !hasEmail) {
+        try {
+          await setDoc(doc(db, 'students', d.id), {
+            createdByUid: uid || data.createdByUid || null,
+            createdByEmail: email || data.createdByEmail || null,
+          }, { merge: true });
+          updated += 1;
+        } catch (_err) {}
+      }
+    }
+    if (updated > 0 && __DEV__) {
+      console.log(`Auto-backfill updated ${updated} student docs.`);
+    }
+  };
+
+  const mapAndFilterForModerator = (rawStudents: any[], uid: string | null, email: string | null): Student[] => {
+    const owned = rawStudents.filter((s: any) => {
+      if (!s || s.createdBy !== 'moderator') return false;
+      if (uid && s.createdByUid === uid) return true;
+      if (email && s.createdByEmail === email) return true;
+      return false;
+    });
+    return owned.map((student: any) => ({
         id: student.id,
         childName: student.childName,
         childAge: student.childAge,
         severity: student.severity,
         progress: student.progress || 0,
         createdBy: student.createdBy || 'moderator',
-        learningProgress: student.learningProgress || {},
-        focusAreas: Array.isArray(student.focusAreas) ? student.focusAreas : [],
-      }));
+      learningProgress: student.learningProgress || {},
+      focusAreas: Array.isArray(student.focusAreas) ? student.focusAreas : [],
+    }));
+  };
 
+  const attachRealtime = () => {
+    const baseRef = collection(db, 'students');
+
+    const unsubscribeStudents = onSnapshot(baseRef, async (snapshot) => {
+      const current = auth.currentUser;
+      const curUid = current && current.uid ? current.uid : null;
+      const curEmail = current && current.email ? current.email : null;
+
+      try {
+        await backfillMissingOwnershipForDocs(snapshot.docs, curUid, curEmail);
+      } catch (_err) {}
+
+      const directStudents = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
+      const moderatorStudents = mapAndFilterForModerator(directStudents, curUid, curEmail);
       setStudents(moderatorStudents);
     });
 
-    return () => {
-      unsubscribeStudents();
+    return unsubscribeStudents;
     };
-  }, []);
 
   const loadData = async () => {
     try {
-      // Load only moderator-created students from the students collection
-      const studentsQuery = query(collection(db, 'students'), where('createdBy', '==', 'moderator'));
-      const querySnapshot = await getDocs(studentsQuery);
-      const directStudents = querySnapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
-      
-      const moderatorStudents: Student[] = directStudents.map((student: any) => ({
-        id: student.id,
-        childName: student.childName,
-        childAge: student.childAge,
-        severity: student.severity,
-        progress: student.progress || 0,
-        createdBy: student.createdBy || 'moderator',
-        learningProgress: student.learningProgress || {},
-        focusAreas: Array.isArray(student.focusAreas) ? student.focusAreas : [],
-      }));
+      const current = auth.currentUser;
+      const email = current && current.email ? current.email : null;
+      const uid = current && current.uid ? current.uid : null;
 
+      // Always perform backfill on load before filtering
+      try {
+        const baseRef = collection(db, 'students');
+        const qModerators = query(baseRef, where('createdBy', '==', 'moderator'));
+        const snap = await getDocs(qModerators);
+        await backfillMissingOwnershipForDocs(snap.docs, uid, email);
+      } catch (_err) {}
+
+      // Initial load like Admin: read all then filter client-side
+      const baseRef = collection(db, 'students');
+      const snapshot = await getDocs(baseRef);
+      const directStudents = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as any) }));
+      const moderatorStudents = mapAndFilterForModerator(directStudents, uid, email);
       setStudents(moderatorStudents);
+
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+      unsubscribeRef.current = attachRealtime();
 
       const mockContent: LearningContent[] = [
         {
@@ -138,6 +185,16 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
       setLoading(false);
     }
   };
+
+  const unsubscribeRef = React.useRef<null | (() => void)>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, []);
 
   const getStudentsWithSeverity = () => {
     if (severityFilter === 'all') {
@@ -339,6 +396,46 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
     setShowFocusModal(false);
   };
 
+  const backfillMyOwnership = async () => {
+    try {
+      const current = auth.currentUser;
+      if (!current || (!current.uid && !current.email)) {
+        Alert.alert('Not Signed In', 'Please sign in again and try backfill.');
+        return;
+      }
+      const uid = current.uid || null;
+      const email = current.email || null;
+
+      // Get moderator-added students (cannot query for missing fields; filter client-side)
+      const baseRef = collection(db, 'students');
+      const qModerators = query(baseRef, where('createdBy', '==', 'moderator'));
+      const snap = await getDocs(qModerators);
+      const toUpdate = snap.docs.filter((d) => {
+        const data: any = d.data();
+        const hasUid = !!data.createdByUid;
+        const hasEmail = !!data.createdByEmail;
+        return !hasUid || !hasEmail;
+      });
+
+      let updated = 0;
+      for (const docSnap of toUpdate) {
+        try {
+          await setDoc(doc(db, 'students', docSnap.id), {
+            createdByUid: uid,
+            createdByEmail: email,
+          }, { merge: true });
+          updated += 1;
+        } catch (_err) {}
+      }
+
+      Alert.alert('Backfill Complete', `Updated ${updated} student(s).`);
+      // Reload to reflect
+      loadData();
+    } catch (err) {
+      Alert.alert('Backfill Failed', 'Could not complete backfill.');
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -355,9 +452,11 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         </View>
       </View>
 
-      <TouchableOpacity style={styles.bookButton} onPress={handleOpenLibrary}>
-        <Text style={styles.bookButtonText}>Learning Library</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+        <TouchableOpacity style={styles.bookButton} onPress={handleOpenLibrary}>
+          <Text style={styles.bookButtonText}>Learning Library</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>

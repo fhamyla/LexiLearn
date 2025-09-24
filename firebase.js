@@ -541,6 +541,10 @@ export const addStudentDirectly = async (studentData) => {
       studentId = `student_${timestamp}_${randomPart1}_${randomPart2}_${processId}`;
     }
     
+    const currentUser = auth.currentUser;
+    const createdByEmail = currentUser && currentUser.email ? currentUser.email : null;
+    const createdByUid = currentUser && currentUser.uid ? currentUser.uid : null;
+    
     // Create student document in Firestore
     const studentRef = doc(db, 'students', studentId);
     await setDoc(studentRef, {
@@ -551,6 +555,8 @@ export const addStudentDirectly = async (studentData) => {
       progress: 0,
       createdAt: new Date(),
       createdBy: 'moderator', // Track who created this student
+      createdByEmail: createdByEmail,
+      createdByUid: createdByUid,
       status: 'active',
       // Add empty learning progress structure
       learningProgress: {
@@ -564,7 +570,7 @@ export const addStudentDirectly = async (studentData) => {
           basicAddition: { completed: false, progress: 0 },
           subtraction: { completed: false, progress: 0 }
         },
-        socialSkills: {
+        'social skills': {
           eyeContact: { completed: false, progress: 0 },
           turnTaking: { completed: false, progress: 0 },
           emotionRecognition: { completed: false, progress: 0 }
@@ -633,7 +639,7 @@ export const addGuardianChildToStudents = async (childData, guardianEmail) => {
           basicAddition: { completed: false, progress: 0 },
           subtraction: { completed: false, progress: 0 }
         },
-        socialSkills: {
+        'social skills': {
           eyeContact: { completed: false, progress: 0 },
           turnTaking: { completed: false, progress: 0 },
           emotionRecognition: { completed: false, progress: 0 }
