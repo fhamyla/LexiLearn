@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { checkAdminCredentials, signInUser, resendEmailVerification, resetPassword, checkTeacherApproval } from '../firebase';
+import { doc, setDoc } from '@firebase/firestore';
+import { db } from '../firebase';
 
 const LoginScreen: React.FC<{ 
   onSignUp?: () => void; 
@@ -99,6 +101,15 @@ const LoginScreen: React.FC<{
               [{ text: 'OK' }]
             );
             return;
+          } else if (approvalResult.success && approvalResult.isApproved) {
+            // Show approval success only ONCE for THIS account (first approved login)
+            const approvedSeen = userResult.userData && userResult.userData.approvedSeenAt;
+            if (!approvedSeen) {
+              Alert.alert('Approved', 'Your moderator account has been approved. Welcome!');
+              try {
+                await setDoc(doc(db, 'users', email), { approvedSeenAt: new Date() }, { merge: true });
+              } catch (_err) {}
+            }
           }
         }
 
@@ -229,8 +240,6 @@ const LoginScreen: React.FC<{
               </Text>
             </TouchableOpacity>
 
-
-
             {/* Sign Up Section */}
             <View style={styles.signUpContainer}>
               <Text style={styles.signUpText}>Don't have an account? </Text>
@@ -248,7 +257,7 @@ const LoginScreen: React.FC<{
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA', // Light background for better contrast
+    backgroundColor: '#F8F9FA',
   },
   keyboardView: {
     flex: 1,
@@ -262,19 +271,19 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 48,
-    marginTop: 40, // Added extra space at the top
+    marginTop: 40,
   },
   title: {
     fontSize: 28,
     fontWeight: '600',
-    color: '#2C3E50', // Dark blue-gray for good readability
+    color: '#2C3E50',
     marginBottom: 8,
     textAlign: 'center',
-    lineHeight: 36, // Increased line height for better readability
+    lineHeight: 36,
   },
   subtitle: {
     fontSize: 16,
-    color: '#7F8C8D', // Medium gray for secondary text
+    color: '#7F8C8D',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -321,12 +330,12 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 14,
-    color: '#3498DB', // Blue for links
+    color: '#3498DB',
     fontWeight: '500',
     lineHeight: 20,
   },
   loginButton: {
-    backgroundColor: '#3498DB', // Blue button
+    backgroundColor: '#3498DB',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -334,7 +343,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   loginButtonDisabled: {
-    backgroundColor: '#BDC3C7', // Gray when disabled
+    backgroundColor: '#BDC3C7',
     opacity: 0.7,
   },
   loginButtonText: {
@@ -348,7 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 'auto',
-    marginBottom: 32, // 2rem in px
+    marginBottom: 32,
   },
   signUpText: {
     fontSize: 16,
@@ -360,20 +369,6 @@ const styles = StyleSheet.create({
     color: '#3498DB',
     fontWeight: '600',
     lineHeight: 22,
-  },
-  testButton: {
-    backgroundColor: '#E74C3C',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    minHeight: 48,
-  },
-  testButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    lineHeight: 20,
   },
   errorContainer: {
     backgroundColor: '#FEE2E2',

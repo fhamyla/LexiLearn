@@ -91,8 +91,8 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     try {
       const result = await approveTeacher(teacherId);
       if (result.success) {
-        Alert.alert('Success', result.message);
-    loadData(); // Reload data
+        // Silent success, just refresh lists
+        loadData();
       } else {
         Alert.alert('Error', result.message);
       }

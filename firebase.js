@@ -55,6 +55,7 @@ export const createUserWithEmail = async (email, password, userData) => {
         emailVerified: false,
         createdAt: new Date(),
         status: userData.userType === 'teacher' ? 'pending' : 'active',
+        approvedAt: userData.userType === 'teacher' ? null : new Date(),
       });
     } catch (firestoreError) {
       console.log('Firestore error:', firestoreError);
@@ -326,7 +327,7 @@ export const getAllStudents = async () => {
 export const approveTeacher = async (email) => {
   try {
     const userRef = doc(db, 'users', email);
-    await setDoc(userRef, { status: 'active' }, { merge: true });
+    await setDoc(userRef, { status: 'active', approvedAt: new Date() }, { merge: true });
     return { success: true, message: 'Teacher approved successfully' };
   } catch (error) {
     return { success: false, message: 'Failed to approve teacher' };
