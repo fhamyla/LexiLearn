@@ -1,0 +1,139 @@
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+
+export interface StudentFocusPageProps {
+  student: any;
+  selectedCategories: string[];
+}
+
+const categoryTitleMap: Record<string, string> = {
+  reading: '📚 Reading',
+  writing: '✍️ Writing',
+  spelling: '🔤 Spelling',
+  math: '🔢 Math',
+  socialSkills: '🤝 Social Skills',
+};
+
+const humanizeKey = (key: string) =>
+  key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/^\w/, c => c.toUpperCase());
+
+const StudentFocusPage: React.FC<StudentFocusPageProps> = ({ student, selectedCategories }) => {
+  const learningProgress = (student && student.learningProgress) || {};
+  const categoriesToShow = selectedCategories.filter((c) => learningProgress[c]);
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.headerTitle}>{student?.childName || 'Student'} - Focus View</Text>
+
+      {categoriesToShow.length === 0 ? (
+        <Text style={styles.emptyText}>No focus areas selected.</Text>
+      ) : (
+        categoriesToShow.map((categoryKey) => {
+          const title = categoryTitleMap[categoryKey] || humanizeKey(categoryKey);
+          const items = learningProgress[categoryKey] || {};
+          const itemKeys = Object.keys(items);
+          return (
+            <View key={categoryKey} style={styles.section}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+              {itemKeys.length === 0 ? (
+                <Text style={styles.emptyText}>No items in this category.</Text>
+              ) : (
+                itemKeys.map((itemKey) => {
+                  const item = items[itemKey];
+                  const progressPercent = typeof item?.progress === 'number' ? Math.max(0, Math.min(100, item.progress)) : 0;
+                  const status = item?.completed ? '✅ Completed' : progressPercent > 0 ? '🔄 In Progress' : '⏳ Not Started';
+                  return (
+                    <View key={itemKey} style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>{humanizeKey(itemKey)}</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>{status}</Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          );
+        })
+      )}
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    padding: 20,
+    backgroundColor: '#F0F4F8',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  section: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#4F8EF7',
+    marginBottom: 12,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
+  },
+  lessonItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+  },
+  lessonName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    flex: 1,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#e9ecef',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginHorizontal: 10,
+    width: 100,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#28a745',
+  },
+  lessonStatus: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+    minWidth: 90,
+    textAlign: 'right',
+  },
+});
+
+export default StudentFocusPage;

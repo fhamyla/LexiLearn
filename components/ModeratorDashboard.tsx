@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { addStudentDirectly } from '../firebase';
-import { collection, onSnapshot, query, where, getDocs } from '@firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, doc, setDoc } from '@firebase/firestore';
 import { db } from '../firebase';
+import StudentFocusPage from './LearningLibrary/StudentFocusPage';
 
 interface Student {
   id: string;
@@ -14,6 +15,8 @@ interface Student {
   severity?: string;
   progress?: number;
   createdBy?: string;
+  learningProgress?: any;
+  focusAreas?: string[];
 }
 
 interface User {
@@ -52,6 +55,10 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   // Learning Library Modal State
   const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showFocusModal, setShowFocusModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -68,6 +75,8 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         severity: student.severity,
         progress: student.progress || 0,
         createdBy: student.createdBy || 'moderator',
+        learningProgress: student.learningProgress || {},
+        focusAreas: Array.isArray(student.focusAreas) ? student.focusAreas : [],
       }));
 
       setStudents(moderatorStudents);
@@ -92,6 +101,8 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         severity: student.severity,
         progress: student.progress || 0,
         createdBy: student.createdBy || 'moderator',
+        learningProgress: student.learningProgress || {},
+        focusAreas: Array.isArray(student.focusAreas) ? student.focusAreas : [],
       }));
 
       setStudents(moderatorStudents);
@@ -269,6 +280,50 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
 
   const handleCloseLibrary = () => {
     setShowLibraryModal(false);
+    // Reset selection state when closing library
+    setSelectedStudent(null);
+    setSelectedCategories([]);
+    setAvailableCategories([]);
+  };
+
+  const handleSelectStudent = (student: Student) => {
+    setSelectedStudent(student);
+    const lp = (student && student.learningProgress) || {};
+    const categories = Object.keys(lp);
+    setAvailableCategories(categories);
+    // Preselect saved focus areas if exist, otherwise all
+    const saved = Array.isArray(student.focusAreas) && student.focusAreas.length > 0 ? student.focusAreas : categories;
+    setSelectedCategories(saved);
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+    );
+  };
+
+  const persistFocusAreas = async (studentId: string, categories: string[]) => {
+    try {
+      const studentRef = doc(db, 'students', studentId);
+      await setDoc(studentRef, { focusAreas: categories }, { merge: true });
+    } catch (err) {
+      console.error('Failed to save focus areas:', err);
+      Alert.alert('Save Failed', 'Could not save focus areas. Please try again.');
+    }
+  };
+
+  const openFocusView = async () => {
+    if (!selectedStudent) return;
+    if (selectedCategories.length === 0) {
+      Alert.alert('Select Focus', 'Please choose at least one focus area.');
+      return;
+    }
+    await persistFocusAreas(selectedStudent.id, selectedCategories);
+    setShowFocusModal(true);
+  };
+
+  const closeFocusView = () => {
+    setShowFocusModal(false);
   };
 
   return (
@@ -634,12 +689,43 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
               <Text style={styles.loadingText}>Loading...</Text>
             ) : moderatorCreatedStudents().length === 0 ? (
               <Text style={styles.emptyText}>No moderator-added students</Text>
+            ) : selectedStudent ? (
+              <View>
+                <Text style={styles.modalLabel}>Choose focus areas for {selectedStudent.childName}</Text>
+                <View style={styles.filterButtons}>
+                  {availableCategories.map((category) => (
+                    <TouchableOpacity
+                      key={category}
+                      style={[styles.filterButton, selectedCategories.includes(category) && styles.filterButtonActive]}
+                      onPress={() => toggleCategory(category)}
+                    >
+                      <Text style={[styles.filterButtonText, selectedCategories.includes(category) && styles.filterButtonTextActive]}>
+                        {category}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity 
+                    style={styles.modalCancelButton} 
+                    onPress={() => setSelectedStudent(null)}
+                  >
+                    <Text style={styles.modalCancelButtonText}>Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.modalSaveButton}
+                    onPress={openFocusView}
+                  >
+                    <Text style={styles.modalSaveButtonText}>Open Focus</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             ) : (
               getModeratorStudentsWithSearch().map((student) => (
-                <View key={student.id} style={styles.studentCard}>
+                <TouchableOpacity key={student.id} style={styles.studentCard} onPress={() => handleSelectStudent(student)}>
                   <Text style={styles.studentName}>{student.childName} {student.childAge ? `(Age: ${student.childAge})` : ''}</Text>
                   <Text style={styles.severityInfo}>Severity: {student.severity}</Text>
-                </View>
+                </TouchableOpacity>
               ))
             )}
 
@@ -651,6 +737,57 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
                 <Text style={styles.modalCancelButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Full-screen Focus View */}
+      <Modal
+        visible={showFocusModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={closeFocusView}
+      >
+        <View style={{ flex: 1 }}>
+          <View style={{ padding: 12, backgroundColor: '#4F8EF7' }}>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>Focus View</Text>
+          </View>
+
+          {/* In-focus category toggles */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <Text style={styles.modalLabel}>Adjust focus areas</Text>
+            <View style={styles.filterButtons}>
+              {availableCategories.map((category) => (
+                <TouchableOpacity
+                  key={category}
+                  style={[styles.filterButton, selectedCategories.includes(category) && styles.filterButtonActive]}
+                  onPress={() => toggleCategory(category)}
+                >
+                  <Text style={[styles.filterButtonText, selectedCategories.includes(category) && styles.filterButtonTextActive]}>
+                    {category}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalSaveButton}
+                onPress={async () => {
+                  if (!selectedStudent) return;
+                  await persistFocusAreas(selectedStudent.id, selectedCategories);
+                  Alert.alert('Saved', 'Focus areas updated');
+                }}
+              >
+                <Text style={styles.modalSaveButtonText}>Save Focus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <StudentFocusPage student={selectedStudent} selectedCategories={selectedCategories} />
+          <View style={{ padding: 12 }}>
+            <TouchableOpacity style={[styles.modalCancelButton, { alignSelf: 'stretch' }]} onPress={closeFocusView}>
+              <Text style={styles.modalCancelButtonText}>Close Focus</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -824,11 +961,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     borderRadius: 8,
     padding: 5,
+    flexWrap: 'wrap',
+    rowGap: 8,
   },
   filterButton: {
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
+    margin: 4,
   },
   filterButtonActive: {
     backgroundColor: '#4F8EF7',
