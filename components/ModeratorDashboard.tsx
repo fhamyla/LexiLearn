@@ -207,7 +207,26 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   const normalizeCategory = (key: string) => {
     const lower = (key || '').toLowerCase();
     if (lower === 'socialskills' || lower === 'social skills') return 'social skills';
+    if (lower === 'spelling') return 'spelling';
+    if (lower === 'writing') return 'writing';
     return lower;
+  };
+
+  const orderCategories = (categories: string[]) => {
+    const desiredOrder = ['reading', 'math', 'social skills', 'spelling', 'writing'];
+    const set = new Set(categories.map(normalizeCategory));
+    // Ensure spelling and writing are present even if not in learningProgress yet
+    set.add('spelling');
+    set.add('writing');
+    const unique = Array.from(set);
+    const priority = new Map<string, number>();
+    desiredOrder.forEach((c, idx) => priority.set(c, idx));
+    return unique.sort((a, b) => {
+      const ai = priority.has(a) ? (priority.get(a) as number) : Number.MAX_SAFE_INTEGER;
+      const bi = priority.has(b) ? (priority.get(b) as number) : Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return a.localeCompare(b);
+    });
   };
 
   const getStudentsWithSeverityAndSearch = () => {
@@ -355,11 +374,11 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
     const lp = (student && student.learningProgress) || {};
     const rawCategories = Object.keys(lp);
     const categories = rawCategories.map(normalizeCategory);
-    // Ensure unique after normalization
-    const uniqueCategories = Array.from(new Set(categories));
-    setAvailableCategories(uniqueCategories);
+    // Ensure unique after normalization and apply ordering with spelling/writing at bottom of core three
+    const ordered = orderCategories(categories);
+    setAvailableCategories(ordered);
     // Preselect saved focus areas if exist (normalize), otherwise all
-    const savedRaw = Array.isArray(student.focusAreas) && student.focusAreas.length > 0 ? student.focusAreas : uniqueCategories;
+    const savedRaw = Array.isArray(student.focusAreas) && student.focusAreas.length > 0 ? student.focusAreas : ordered;
     const saved = savedRaw.map(normalizeCategory);
     setSelectedCategories(Array.from(new Set(saved)));
   };
@@ -804,14 +823,14 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
             ) : selectedStudent ? (
               <View>
                 <Text style={styles.modalLabel}>Choose focus areas for {selectedStudent.childName}</Text>
-                <View style={styles.filterButtons}>
+                <View style={styles.sectionFilterContainer}>
                   {availableCategories.map((category) => (
                     <TouchableOpacity
                       key={category}
-                      style={[styles.filterButton, selectedCategories.includes(category) && styles.filterButtonActive]}
+                      style={[styles.sectionFilterButton, selectedCategories.includes(category) && styles.sectionFilterButtonActive]}
                       onPress={() => toggleCategory(category)}
                     >
-                      <Text style={[styles.filterButtonText, selectedCategories.includes(category) && styles.filterButtonTextActive]}>
+                      <Text style={[styles.sectionFilterButtonText, selectedCategories.includes(category) && styles.sectionFilterButtonTextActive]}>
                         {category}
                       </Text>
                     </TouchableOpacity>
@@ -819,16 +838,21 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
                 </View>
                 <View style={styles.modalButtons}>
                   <TouchableOpacity 
-                    style={styles.modalCancelButton} 
-                    onPress={() => setSelectedStudent(null)}
+                    style={[styles.bookButton, { backgroundColor: '#6c757d', paddingVertical: 14, paddingHorizontal: 20 }]}
+                    onPress={handleCloseLibrary}
                   >
-                    <Text style={styles.modalCancelButtonText}>Back</Text>
+                    <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    style={styles.modalSaveButton}
-                    onPress={openFocusView}
+                    style={[styles.bookButton, { backgroundColor: '#28a745', paddingVertical: 14, paddingHorizontal: 20 }]}
+                    onPress={async () => {
+                      if (!selectedStudent) return;
+                      await persistFocusAreas(selectedStudent.id, selectedCategories);
+                      Alert.alert('Saved', 'Focus areas updated');
+                      handleCloseLibrary();
+                    }}
                   >
-                    <Text style={styles.modalSaveButtonText}>Open Focus</Text>
+                    <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Save</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -841,14 +865,7 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
               ))
             )}
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={styles.modalCancelButton} 
-                onPress={handleCloseLibrary}
-              >
-                <Text style={styles.modalCancelButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
+            
           </View>
         </View>
       </Modal>
@@ -867,15 +884,15 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
 
           {/* In-focus category toggles */}
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-            <Text style={styles.modalLabel}>Adjust focus areas</Text>
-            <View style={styles.filterButtons}>
+            <Text style={styles.modalLabel}>Choose Focus Areas</Text>
+            <View style={styles.sectionFilterContainer}>
               {availableCategories.map((category) => (
                 <TouchableOpacity
                   key={category}
-                  style={[styles.filterButton, selectedCategories.includes(category) && styles.filterButtonActive]}
+                  style={[styles.sectionFilterButton, selectedCategories.includes(category) && styles.sectionFilterButtonActive]}
                   onPress={() => toggleCategory(category)}
                 >
-                  <Text style={[styles.filterButtonText, selectedCategories.includes(category) && styles.filterButtonTextActive]}>
+                  <Text style={[styles.sectionFilterButtonText, selectedCategories.includes(category) && styles.sectionFilterButtonTextActive]}>
                     {category}
                   </Text>
                 </TouchableOpacity>
@@ -883,24 +900,27 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
             </View>
             <View style={styles.modalButtons}>
               <TouchableOpacity 
-                style={styles.modalSaveButton}
+                style={[styles.bookButton, { backgroundColor: '#6c757d', paddingVertical: 14, paddingHorizontal: 20 }]}
+                onPress={closeFocusView}
+              >
+                <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.bookButton, { backgroundColor: '#28a745', paddingVertical: 14, paddingHorizontal: 20 }]}
                 onPress={async () => {
                   if (!selectedStudent) return;
                   await persistFocusAreas(selectedStudent.id, selectedCategories);
                   Alert.alert('Saved', 'Focus areas updated');
+                  closeFocusView();
                 }}
               >
-                <Text style={styles.modalSaveButtonText}>Save Focus</Text>
+                <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <StudentFocusPage student={selectedStudent} selectedCategories={selectedCategories} />
-          <View style={{ padding: 12 }}>
-            <TouchableOpacity style={[styles.modalCancelButton, { alignSelf: 'stretch' }]} onPress={closeFocusView}>
-              <Text style={styles.modalCancelButtonText}>Close Focus</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Removed standalone Close Focus button to mirror parent's modal */}
         </View>
       </Modal>
     </ScrollView>
@@ -1177,6 +1197,7 @@ const styles = StyleSheet.create({
   },
   sectionFilterContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
     marginBottom: 16,
     width: '100%',
@@ -1189,6 +1210,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     backgroundColor: '#fff',
+    margin: 4,
   },
   sectionFilterButtonActive: {
     backgroundColor: '#4F8EF7',

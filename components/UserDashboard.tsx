@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { auth, db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 
 interface ChildProgress {
   id: string;
@@ -37,6 +37,10 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sectionFilter, setSectionFilter] = useState<'learning' | 'improvements'>('learning');
+  const [showFocusModal, setShowFocusModal] = useState(false);
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     console.log('UserDashboard mounted, onLogout prop:', !!onLogout);
@@ -124,9 +128,40 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         },
       ];
 
-             setChildProgress(childProgress);
-       setRecentActivities(mockActivities);
-       setMessages(mockMessages);
+      // Find this guardian's student document and prepare focus categories
+      try {
+        const studentsRef = collection(db, 'students');
+        const q = query(studentsRef, where('createdBy', '==', 'guardian'), where('guardianEmail', '==', user.email));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const d = snap.docs[0];
+          const data: any = d.data();
+          setStudentId(d.id);
+          const lp = (data && data.learningProgress) || {};
+          const raw = Object.keys(lp).map(k => (k || '').toLowerCase());
+          const setCats = new Set<string>(raw);
+          setCats.add('spelling');
+          setCats.add('writing');
+          const desiredOrder = ['reading', 'math', 'social skills', 'spelling', 'writing'];
+          const ordered = Array.from(setCats).sort((a, b) => {
+            const ai = desiredOrder.indexOf(a);
+            const bi = desiredOrder.indexOf(b);
+            const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
+            const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
+            if (av !== bv) return av - bv;
+            return a.localeCompare(b);
+          });
+          setAvailableCategories(ordered);
+          const preselected = Array.isArray(data.focusAreas) && data.focusAreas.length > 0
+            ? (data.focusAreas as string[]).map(s => (s || '').toLowerCase())
+            : ordered;
+          setSelectedCategories(Array.from(new Set(preselected)));
+        }
+      } catch (_err) {}
+
+      setChildProgress(childProgress);
+      setRecentActivities(mockActivities);
+      setMessages(mockMessages);
     } catch (error) {
       Alert.alert('Error', 'Failed to load data');
     } finally {
@@ -158,7 +193,29 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   };
 
   const handleOpenLibrary = () => {
-    Alert.alert('Library', 'Open Learning Library');
+    if (!studentId) {
+      Alert.alert('Library', 'No child record found yet.');
+      return;
+    }
+    setShowFocusModal(true);
+  };
+
+  const toggleCategory = (category: string) => {
+    const key = (category || '').toLowerCase();
+    setSelectedCategories(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
+  };
+
+  const persistFocusAreas = async () => {
+    try {
+      if (!studentId) return;
+      const ref = doc(db, 'students', studentId);
+      const normalized = selectedCategories.map(s => (s || '').toLowerCase());
+      await setDoc(ref, { focusAreas: normalized }, { merge: true });
+      Alert.alert('Saved', 'Focus areas updated');
+      setShowFocusModal(false);
+    } catch (_err) {
+      Alert.alert('Save Failed', 'Could not save focus areas. Please try again.');
+    }
   };
 
   return (
@@ -177,6 +234,43 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         <Text style={styles.bookButtonText}>Learning Library</Text>
       </TouchableOpacity>
       
+      <Modal visible={showFocusModal} animationType="slide" transparent={true} onRequestClose={() => setShowFocusModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', width: '90%', maxWidth: 600, borderRadius: 12, padding: 16 }}>
+            <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>Choose Focus Areas</Text>
+            <View style={styles.sectionFilterContainer}>
+              {availableCategories.map((cat) => (
+                <TouchableOpacity key={cat} style={[styles.sectionFilterButton, selectedCategories.includes((cat || '').toLowerCase()) && styles.sectionFilterButtonActive]} onPress={() => toggleCategory(cat)}>
+                  <Text style={[styles.sectionFilterButtonText, selectedCategories.includes((cat || '').toLowerCase()) && styles.sectionFilterButtonTextActive]}>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity 
+                style={[
+                  styles.bookButton,
+                  { backgroundColor: '#6c757d', paddingVertical: 14, paddingHorizontal: 20 }
+                ]} 
+                onPress={() => setShowFocusModal(false)}
+              >
+                <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.bookButton,
+                  { backgroundColor: '#28a745', paddingVertical: 14, paddingHorizontal: 20 }
+                ]} 
+                onPress={persistFocusAreas}
+              >
+                <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {childProgress && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Child Progress</Text>
@@ -597,6 +691,7 @@ const styles = StyleSheet.create({
   },
   sectionFilterContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
     marginBottom: 16,
     width: '100%',
@@ -608,6 +703,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     backgroundColor: '#fff',
+    margin: 4,
   },
   sectionFilterButtonActive: {
     backgroundColor: '#4F8EF7',
@@ -712,7 +808,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-
 });
 
 export default UserDashboard; 

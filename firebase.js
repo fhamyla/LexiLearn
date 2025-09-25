@@ -575,7 +575,9 @@ export const addStudentDirectly = async (studentData) => {
           eyeContact: { completed: false, progress: 0 },
           turnTaking: { completed: false, progress: 0 },
           emotionRecognition: { completed: false, progress: 0 }
-        }
+        },
+        spelling: {},
+        writing: {}
       }
     });
     
@@ -644,7 +646,9 @@ export const addGuardianChildToStudents = async (childData, guardianEmail) => {
           eyeContact: { completed: false, progress: 0 },
           turnTaking: { completed: false, progress: 0 },
           emotionRecognition: { completed: false, progress: 0 }
-        }
+        },
+        spelling: {},
+        writing: {}
       }
     });
     
