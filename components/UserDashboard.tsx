@@ -210,7 +210,24 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       if (!studentId) return;
       const ref = doc(db, 'students', studentId);
       const normalized = selectedCategories.map(s => (s || '').toLowerCase());
-      await setDoc(ref, { focusAreas: normalized }, { merge: true });
+      // Ensure learningProgress has spelling and writing lesson items
+      await setDoc(
+        ref,
+        {
+          focusAreas: normalized,
+          learningProgress: {
+            spelling: {
+              letter_sounds: { progress: 0, completed: false },
+              cvc_words: { progress: 0, completed: false },
+            },
+            writing: {
+              letter_foundation: { progress: 0, completed: false },
+              copying_words: { progress: 0, completed: false },
+            },
+          },
+        },
+        { merge: true }
+      );
       Alert.alert('Saved', 'Focus areas updated');
       setShowFocusModal(false);
     } catch (_err) {
@@ -406,6 +423,46 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                   </View>
                 </View>
 
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>🔤 Spelling</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Letter Sounds</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '20%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>CVC Words</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>✍️ Writing</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Letter Formation</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '10%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Copying Words</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
                 <View style={styles.overallProgress}>
                   <Text style={styles.overallTitle}>Overall Progress</Text>
                   <View style={styles.overallBar}>
@@ -429,11 +486,25 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                   <Text style={styles.progressText}>75%</Text>
                 </View>
                 <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Spelling Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '15%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>15%</Text>
+                </View>
+                <View style={styles.improvementItem}>
                   <Text style={styles.improvementLabel}>Writing Skills</Text>
                   <View style={styles.progressBar}>
                     <View style={[styles.progressFill, { width: '60%' }]} />
                   </View>
                   <Text style={styles.progressText}>60%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Social Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '45%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>45%</Text>
                 </View>
                 <View style={styles.improvementItem}>
                   <Text style={styles.improvementLabel}>Math Skills</Text>

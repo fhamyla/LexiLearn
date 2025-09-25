@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { getPendingTeachers, getAllUsers, getAllStudents, approveTeacher, rejectTeacher, scheduleDatabaseDeletion, auth, db } from '../firebase';
-import { collection, onSnapshot } from '@firebase/firestore';
+import { collection, onSnapshot, doc, setDoc } from '@firebase/firestore';
 
 interface Teacher {
   id: string;
@@ -79,6 +79,29 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       setPendingTeachers(teachers as Teacher[]);
       setAllUsers(users as User[]);
       setAllStudents(students);
+      // Ensure all students in Firestore have spelling and writing keys in learningProgress
+      try {
+        for (const s of students) {
+          const sid = (s as any).id;
+          const lp = (s as any).learningProgress || {};
+          const spelling = lp.spelling || {};
+          const writing = lp.writing || {};
+          try {
+            await setDoc(doc(db, 'students', sid), {
+              learningProgress: {
+                spelling: {
+                  letter_sounds: spelling.letter_sounds || { progress: 0, completed: false },
+                  cvc_words: spelling.cvc_words || { progress: 0, completed: false },
+                },
+                writing: {
+                  letter_foundation: writing.letter_foundation || { progress: 0, completed: false },
+                  copying_words: writing.copying_words || { progress: 0, completed: false },
+                },
+              },
+            }, { merge: true });
+          } catch (_innerErr) {}
+        }
+      } catch (_ensureErr) {}
     } catch (error) {
       console.error('Error loading data:', error);
       Alert.alert('Error', 'Failed to load data');
@@ -578,6 +601,48 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                   </View>
                 </View>
 
+                {/* Spelling Category */}
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>🔤 Spelling</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Letter Sounds</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '20%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>CVC Words</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Writing Category */}
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>✍️ Writing</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Letter Formation</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '10%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Copying Words</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
                 {/* Overall Progress */}
                 <View style={styles.overallProgress}>
                   <Text style={styles.overallTitle}>Overall Progress</Text>
@@ -664,6 +729,20 @@ const AdminDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                     <View style={[styles.progressFill, { width: '85%' }]} />
                   </View>
                   <Text style={styles.progressText}>85%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Spelling Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '15%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>15%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Social Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '45%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>45%</Text>
                 </View>
                 
                 {/* Overall Improvements */}

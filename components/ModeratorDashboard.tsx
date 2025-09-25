@@ -394,7 +394,25 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
     try {
       const normalized = categories.map(normalizeCategory);
       const studentRef = doc(db, 'students', studentId);
-      await setDoc(studentRef, { focusAreas: normalized }, { merge: true });
+      // Ensure spelling and writing have default lesson items in learningProgress
+      const lpEnsure: any = {
+        spelling: {
+          letter_sounds: { progress: 0, completed: false },
+          cvc_words: { progress: 0, completed: false },
+        },
+        writing: {
+          letter_foundation: { progress: 0, completed: false },
+          copying_words: { progress: 0, completed: false },
+        },
+      };
+      await setDoc(
+        studentRef,
+        { 
+          focusAreas: normalized,
+          learningProgress: lpEnsure,
+        },
+        { merge: true }
+      );
     } catch (err) {
       console.error('Failed to save focus areas:', err);
       Alert.alert('Save Failed', 'Could not save focus areas. Please try again.');
@@ -639,6 +657,48 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
                   </View>
                 </View>
 
+                {/* Spelling Category */}
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>🔤 Spelling</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Letter Sounds</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '20%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>CVC Words</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Writing Category */}
+                <View style={styles.categorySection}>
+                  <Text style={styles.categoryTitle}>✍️ Writing</Text>
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Letter Formation</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '10%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                    <View style={styles.lessonItem}>
+                      <Text style={styles.lessonName}>Copying Words</Text>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '0%' }]} />
+                      </View>
+                      <Text style={styles.lessonStatus}>⏳ Not Started</Text>
+                    </View>
+                  </View>
+                </View>
+
                 {/* Overall Progress */}
                 <View style={styles.overallProgress}>
                   <Text style={styles.overallTitle}>Overall Progress</Text>
@@ -709,18 +769,32 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
                   <Text style={styles.progressText}>75%</Text>
                 </View>
                 <View style={styles.improvementItem}>
-                  <Text style={styles.improvementLabel}>Writing Skills</Text>
-                  <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: '60%' }]} />
-                  </View>
-                  <Text style={styles.progressText}>60%</Text>
-                </View>
-                <View style={styles.improvementItem}>
                   <Text style={styles.improvementLabel}>Math Skills</Text>
                   <View style={styles.progressBar}>
                     <View style={[styles.progressFill, { width: '85%' }]} />
                   </View>
                   <Text style={styles.progressText}>85%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Spelling Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '15%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>15%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Writing Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '10%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>10%</Text>
+                </View>
+                <View style={styles.improvementItem}>
+                  <Text style={styles.improvementLabel}>Social Skills</Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: '45%' }]} />
+                  </View>
+                  <Text style={styles.progressText}>45%</Text>
                 </View>
                 
                 {/* Overall Improvements */}
