@@ -576,8 +576,14 @@ export const addStudentDirectly = async (studentData) => {
           turnTaking: { completed: false, progress: 0 },
           emotionRecognition: { completed: false, progress: 0 }
         },
-        spelling: {},
-        writing: {}
+        spelling: {
+          letter_sounds: { progress: 0, completed: false },
+          cvc_words: { progress: 0, completed: false },
+        },
+        writing: {
+          letter_foundation: { progress: 0, completed: false },
+          copying_words: { progress: 0, completed: false },
+        }
       }
     });
     
@@ -647,8 +653,14 @@ export const addGuardianChildToStudents = async (childData, guardianEmail) => {
           turnTaking: { completed: false, progress: 0 },
           emotionRecognition: { completed: false, progress: 0 }
         },
-        spelling: {},
-        writing: {}
+        spelling: {
+          letter_sounds: { progress: 0, completed: false },
+          cvc_words: { progress: 0, completed: false },
+        },
+        writing: {
+          letter_foundation: { progress: 0, completed: false },
+          copying_words: { progress: 0, completed: false },
+        }
       }
     });
     
