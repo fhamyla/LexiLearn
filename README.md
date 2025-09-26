@@ -87,6 +87,61 @@ export { auth, db };
 
 2. **Replace config values** with your actual Firebase project credentials
 
+### 3.5. Firestore Data Model (What to create)
+
+Create the following collections and documents to get started. You can add them via the Firebase Console → Firestore → Data.
+
+- `users` (document ID = user email)
+  - Required fields:
+    - `uid` (string)
+    - `userType` ("guardian" | "teacher")
+    - `status` ("active" | "pending")
+    - `firstName`, `lastName` (optional)
+    - Guardian-only: `childName` (string), `childAge` (number), `severity` ("mild" | "moderate" | "severe" | "profound")
+    - `emailVerified` (boolean), `createdAt` (Timestamp)
+
+- `admins` (document ID = "main")
+  - Fields:
+    - `email` (string)
+    - `password` (string) — simple demo credential used by the app for admin gate
+
+- `students` (document ID = arbitrary string; app creates it automatically)
+  - Common fields the app uses:
+    - `id` (string; equals document ID)
+    - `childName` (string)
+    - `childAge` (number)
+    - `severity` (string)
+    - `progress` (number)
+    - `createdAt` (Timestamp)
+    - `createdBy` ("guardian" | "moderator")
+    - If created by guardian: `guardianEmail` (string)
+    - If created by moderator: `createdByEmail` (string), `createdByUid` (string)
+    - `status` (string, e.g., "active")
+    - `learningProgress` (map of category → items)
+    - `focusAreas` (array of strings)
+
+Example `students` document (simplified):
+```json
+{
+  "id": "student_123",
+  "childName": "Emma",
+  "childAge": 8,
+  "severity": "mild",
+  "createdAt": "<Timestamp>",
+  "createdBy": "guardian",
+  "guardianEmail": "parent@example.com",
+  "status": "active",
+  "learningProgress": {
+    "reading": { "basicPhonics": { "completed": false, "progress": 0 } },
+    "math": { "numberRecognition": { "completed": false, "progress": 0 } },
+    "social skills": { "eyeContact": { "completed": false, "progress": 0 } },
+    "spelling": {},
+    "writing": {}
+  },
+  "focusAreas": ["reading", "math"]
+}
+```
+
 ### 4. Set Up Firebase Services
 
 #### **Authentication**
@@ -98,6 +153,7 @@ export { auth, db };
 1. Go to Firebase Console → Firestore Database
 2. Create database in **test mode** (for development)
 3. Set up security rules (see Security section below)
+4. Create the composite indexes listed below (Indexes section)
 
 ### 5. Set Up Admin Account
 
@@ -116,25 +172,54 @@ export { auth, db };
 
 ### Firestore Security Rules
 
-For production, update your Firestore rules:
+For development, you can use Firestore Test Mode temporarily. For production, update your Firestore rules. The app stores `users` documents keyed by email and also uses `admins/main`, and `students` with creator metadata fields. Below are example rules aligned with how this app reads/writes:
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read/write their own data
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Users are keyed by email; allow owner-by-email
+    match /users/{email} {
+      allow read, write: if
+        request.auth != null &&
+        request.auth.token.email != null &&
+        request.auth.token.email == email;
     }
-    
-    // Allow admins to read all data
-    match /{document=**} {
-      allow read, write: if request.auth != null && 
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+
+    // Admins collection: restrict to signed-in admins (simple demo rule)
+    // Replace with a stronger model for real deployments
+    match /admins/{docId} {
+      allow read, write: if request.auth != null; // tighten as needed
+    }
+
+    // Students: creator-based access
+    match /students/{studentId} {
+      allow read, write: if request.auth != null && (
+        // Guardian access: they own the record
+        (resource.data.createdBy == 'guardian' && resource.data.guardianEmail == request.auth.token.email) ||
+        // Moderator access: records created by the moderator
+        (resource.data.createdBy == 'moderator' && resource.data.createdByEmail == request.auth.token.email)
+      );
     }
   }
 }
 ```
+
+Adjust these rules to your org’s policy. During early development, run in Test Mode and migrate to strict rules before release.
+
+### Required Composite Indexes
+
+Create these indexes in Firestore (Console → Firestore Database → Indexes → Add Index):
+
+- Collection: `users`
+  - Fields: `userType` Asc, `status` Asc
+  - Needed by: querying pending teachers in `getPendingTeachers()`
+
+- Collection: `students`
+  - Fields: `createdBy` Asc, `guardianEmail` Asc
+  - Needed by: guardian-specific student query in `UserDashboard`
+
+If you see a Firestore error mentioning a missing index, the console usually shows a direct link to create it.
 
 ## 👤 Admin Access
 
@@ -268,6 +353,31 @@ LexiLearn/
 }
 ```
 
+#### Students Collection
+```javascript
+{
+  id: string,
+  childName: string,
+  childAge: number,
+  severity: string,
+  progress: number,
+  createdAt: Timestamp,
+  createdBy: 'guardian' | 'moderator',
+  guardianEmail?: string,          // when createdBy == 'guardian'
+  createdByEmail?: string,         // when createdBy == 'moderator'
+  createdByUid?: string,           // when createdBy == 'moderator'
+  status: 'active' | 'inactive',
+  learningProgress: {
+    reading?: object,
+    math?: object,
+    'social skills'?: object,
+    spelling?: object,
+    writing?: object
+  },
+  focusAreas?: string[]
+}
+```
+
 ## 🚀 Deployment
 
 ### Firebase Hosting (Web)
@@ -279,6 +389,18 @@ firebase deploy
 ```
 
 ### Mobile App Stores
+## ☁️ Optional: Cloud Functions (for admin account deletion)
+
+Some code paths (e.g., fully deleting accounts from Firebase Authentication using admin privileges) reference a callable Cloud Function named `deleteUser` in region `us-central1`. This is optional; the app falls back to a client-only flow when not available.
+
+High-level steps if you want this:
+- Enable Blaze plan
+- Initialize functions: `firebase init functions`
+- Implement an HTTPS callable `deleteUser` that verifies admin credentials and deletes the Auth user
+- Deploy: `firebase deploy --only functions`
+
+Without this, moderator/admin deletion uses client-side fallbacks documented in the code.
+
 1. **Android**: Upload APK to Google Play Console
 2. **iOS**: Upload IPA to App Store Connect
 

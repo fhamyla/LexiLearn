@@ -45,46 +45,56 @@ const StudentFocusPage: React.FC<StudentFocusPageProps> = ({ student, selectedCa
   const categoriesToShow = selectedCategories;
 
   return (
-    <ScrollView contentContainerStyle={styles.container} horizontal>
-      <Text style={styles.headerTitle}>{student?.childName || 'Student'}</Text>
-
-      {categoriesToShow.length === 0 ? (
-        <Text style={styles.emptyText}>No focus areas selected.</Text>
-      ) : (
-        categoriesToShow.map((categoryKey) => {
-          const title = titleForCategory(categoryKey);
-          const items = getCategoryItems(learningProgress, categoryKey);
-          const itemKeys = Object.keys(items);
-          return (
-            <View key={categoryKey} style={styles.section}>
-              <Text style={styles.sectionTitle}>{title}</Text>
-              {itemKeys.length === 0 ? (
-                <Text style={styles.emptyText}>No items in this category.</Text>
-              ) : (
-                itemKeys.map((itemKey) => {
-                  const item = items[itemKey];
-                  const progressPercent = typeof item?.progress === 'number' ? Math.max(0, Math.min(100, item.progress)) : 0;
-                  const status = item?.completed ? '✅ Completed' : progressPercent > 0 ? '🔄 In Progress' : '⏳ Not Started';
-                  return (
-                    <View key={itemKey} style={styles.lessonItem}>
-                      <Text style={styles.lessonName}>{prettyItemName(itemKey)}</Text>
-                      <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+    <View style={{ flex: 1 }}>
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>{student?.childName || 'Student'}</Text>
+      </View>
+      <ScrollView contentContainerStyle={styles.container} horizontal>
+        {categoriesToShow.length === 0 ? (
+          <Text style={styles.emptyText}>No focus areas selected.</Text>
+        ) : (
+          categoriesToShow.map((categoryKey) => {
+            const title = titleForCategory(categoryKey);
+            const items = getCategoryItems(learningProgress, categoryKey);
+            const itemKeys = Object.keys(items);
+            return (
+              <View key={categoryKey} style={styles.section}>
+                <Text style={styles.sectionTitle}>{title}</Text>
+                {itemKeys.length === 0 ? (
+                  <Text style={styles.emptyText}>No items in this category.</Text>
+                ) : (
+                  itemKeys.map((itemKey) => {
+                    const item = items[itemKey];
+                    const progressPercent = typeof item?.progress === 'number' ? Math.max(0, Math.min(100, item.progress)) : 0;
+                    const status = item?.completed ? '✅ Completed' : progressPercent > 0 ? '🔄 In Progress' : '⏳ Not Started';
+                    return (
+                      <View key={itemKey} style={styles.lessonItem}>
+                        <Text style={styles.lessonName}>{prettyItemName(itemKey)}</Text>
+                        <View style={styles.progressBar}>
+                          <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                        </View>
+                        <Text style={styles.lessonStatus}>{status}</Text>
                       </View>
-                      <Text style={styles.lessonStatus}>{status}</Text>
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          );
-        })
-      )}
-    </ScrollView>
+                    );
+                  })
+                )}
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  headerBar: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0F4F8',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E6ED',
+  },
   container: {
     flexGrow: 1,
     padding: 20,
@@ -96,7 +106,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
     textAlign: 'center',
-    marginBottom: 16,
   },
   section: {
     backgroundColor: '#fff',

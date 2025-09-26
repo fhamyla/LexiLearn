@@ -974,6 +974,7 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         visible={showFocusModal}
         animationType="slide"
         transparent={false}
+        supportedOrientations={["landscape"]}
         onRequestClose={closeFocusView}
       >
         <View style={{ flex: 1 }}>

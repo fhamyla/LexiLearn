@@ -305,6 +305,7 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         visible={showFullFocusModal}
         animationType="slide"
         transparent={false}
+        supportedOrientations={["landscape"]}
         onRequestClose={() => setShowFullFocusModal(false)}
       >
         <View style={{ flex: 1 }}>
