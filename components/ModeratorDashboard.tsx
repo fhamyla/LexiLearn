@@ -946,12 +946,22 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
                 </View>
               </View>
             ) : (
-              getModeratorStudentsWithSearch().map((student) => (
-                <TouchableOpacity key={student.id} style={styles.studentCard} onPress={() => handleSelectStudent(student)}>
-                  <Text style={styles.studentName}>{student.childName} {student.childAge ? `(Age: ${student.childAge})` : ''}</Text>
-                  <Text style={styles.severityInfo}>Severity: {student.severity}</Text>
-                </TouchableOpacity>
-              ))
+              <View>
+                {getModeratorStudentsWithSearch().map((student) => (
+                  <TouchableOpacity key={student.id} style={styles.studentCard} onPress={() => handleSelectStudent(student)}>
+                    <Text style={styles.studentName}>{student.childName} {student.childAge ? `(Age: ${student.childAge})` : ''}</Text>
+                    <Text style={styles.severityInfo}>Severity: {student.severity}</Text>
+                  </TouchableOpacity>
+                ))}
+                <View style={{ marginTop: 12, alignItems: 'center' }}>
+                  <TouchableOpacity 
+                    style={{ paddingVertical: 10, paddingHorizontal: 32, backgroundColor: '#6c757d', borderRadius: 20 }}
+                    onPress={handleCloseLibrary}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             )}
 
             
