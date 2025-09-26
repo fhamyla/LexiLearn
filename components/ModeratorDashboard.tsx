@@ -59,6 +59,7 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showFocusModal, setShowFocusModal] = useState(false);
+  // Removed lastFocusedStudent shortcut to enforce Student -> Focus View flow
 
   useEffect(() => {
     loadData();
@@ -358,6 +359,10 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
   };
 
   const handleOpenLibrary = () => {
+    // Always start from the student list when opening the library
+    setSelectedStudent(null);
+    setSelectedCategories([]);
+    setAvailableCategories([]);
     setShowLibraryModal(true);
   };
 
@@ -378,9 +383,15 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
     const ordered = orderCategories(categories);
     setAvailableCategories(ordered);
     // Preselect saved focus areas if exist (normalize), otherwise all
-    const savedRaw = Array.isArray(student.focusAreas) && student.focusAreas.length > 0 ? student.focusAreas : ordered;
+    const hasSaved = Array.isArray(student.focusAreas) && student.focusAreas.length > 0;
+    const savedRaw = hasSaved ? student.focusAreas as string[] : ordered;
     const saved = savedRaw.map(normalizeCategory);
     setSelectedCategories(Array.from(new Set(saved)));
+    // If student already has saved focus areas, immediately open focus view
+    if (hasSaved) {
+      setShowLibraryModal(false);
+      setShowFocusModal(true);
+    }
   };
 
   const toggleCategory = (category: string) => {
@@ -426,11 +437,17 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
       return;
     }
     await persistFocusAreas(selectedStudent.id, selectedCategories);
+    setShowLibraryModal(false);
     setShowFocusModal(true);
   };
 
   const closeFocusView = () => {
+    // Close focus view and reset selection so reopening the library shows the student list
     setShowFocusModal(false);
+    setSelectedStudent(null);
+    setSelectedCategories([]);
+    setAvailableCategories([]);
+    setShowLibraryModal(false);
   };
 
   const backfillMyOwnership = async () => {
@@ -920,10 +937,8 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
                   <TouchableOpacity 
                     style={[styles.bookButton, { backgroundColor: '#28a745', paddingVertical: 14, paddingHorizontal: 20 }]}
                     onPress={async () => {
-                      if (!selectedStudent) return;
-                      await persistFocusAreas(selectedStudent.id, selectedCategories);
-                      Alert.alert('Saved', 'Focus areas updated');
-                      handleCloseLibrary();
+                      // Save chosen focus areas and open Focus View immediately
+                      await openFocusView();
                     }}
                   >
                     <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Save</Text>
@@ -982,10 +997,9 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
               <TouchableOpacity 
                 style={[styles.bookButton, { backgroundColor: '#28a745', paddingVertical: 14, paddingHorizontal: 20 }]}
                 onPress={async () => {
+                  // Save silently and keep Focus View open
                   if (!selectedStudent) return;
                   await persistFocusAreas(selectedStudent.id, selectedCategories);
-                  Alert.alert('Saved', 'Focus areas updated');
-                  closeFocusView();
                 }}
               >
                 <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Save</Text>

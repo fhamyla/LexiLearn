@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { auth, db } from '../firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import StudentFocusPage from './LearningLibrary/StudentFocusPage';
 
 interface ChildProgress {
   id: string;
@@ -38,9 +39,12 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [sectionFilter, setSectionFilter] = useState<'learning' | 'improvements'>('learning');
   const [showFocusModal, setShowFocusModal] = useState(false);
+  const [showFullFocusModal, setShowFullFocusModal] = useState(false);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [hasSavedFocusAreas, setHasSavedFocusAreas] = useState(false);
+  const [parentStudent, setParentStudent] = useState<any>(null);
 
   useEffect(() => {
     console.log('UserDashboard mounted, onLogout prop:', !!onLogout);
@@ -156,6 +160,8 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
             ? (data.focusAreas as string[]).map(s => (s || '').toLowerCase())
             : ordered;
           setSelectedCategories(Array.from(new Set(preselected)));
+          setHasSavedFocusAreas(Array.isArray(data.focusAreas) && data.focusAreas.length > 0);
+          setParentStudent({ id: d.id, childName: data.childName || 'Student', learningProgress: lp });
         }
       } catch (_err) {}
 
@@ -197,7 +203,13 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       Alert.alert('Library', 'No child record found yet.');
       return;
     }
-    setShowFocusModal(true);
+    if (hasSavedFocusAreas) {
+      setShowFocusModal(false);
+      setShowFullFocusModal(true);
+    } else {
+      setShowFullFocusModal(false);
+      setShowFocusModal(true);
+    }
   };
 
   const toggleCategory = (category: string) => {
@@ -284,6 +296,34 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Save</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Full-screen Focus View (auto-open if focus areas saved) */}
+      <Modal
+        visible={showFullFocusModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowFullFocusModal(false)}
+      >
+        <View style={{ flex: 1 }}>
+          <View style={{ padding: 12, backgroundColor: '#4F8EF7' }}>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>Focus View</Text>
+          </View>
+
+          {parentStudent ? (
+            <StudentFocusPage student={parentStudent} selectedCategories={selectedCategories} />
+          ) : (
+            <View style={{ padding: 16 }}>
+              <Text>Loading...</Text>
+            </View>
+          )}
+
+          <View style={{ padding: 12 }}>
+            <TouchableOpacity style={[styles.bookButton, { backgroundColor: '#6c757d', alignSelf: 'stretch' }]} onPress={() => setShowFullFocusModal(false)}>
+              <Text style={styles.bookButtonText}>Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
