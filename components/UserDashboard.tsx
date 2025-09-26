@@ -4,6 +4,27 @@ import { auth, db } from '../firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import StudentFocusPage from './LearningLibrary/StudentFocusPage';
 
+// Normalizes category names to lowercase and unifies variations of social skills
+const normalizeCategory = (input: string): string => {
+  const key = (input || '').toLowerCase().trim();
+  if (key === 'social' || key === 'social-skills' || key === 'socialskills') return 'social skills';
+  return key;
+};
+
+// Orders categories per required priority
+const orderCategories = (categories: string[]): string[] => {
+  const desiredOrder = ['reading', 'math', 'social skills', 'spelling', 'writing'];
+  const unique = Array.from(new Set(categories.map(normalizeCategory)));
+  return unique.sort((a, b) => {
+    const ai = desiredOrder.indexOf(a);
+    const bi = desiredOrder.indexOf(b);
+    const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
+    const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
+    if (av !== bv) return av - bv;
+    return a.localeCompare(b);
+  });
+};
+
 interface ChildProgress {
   id: string;
   childName: string;
@@ -142,22 +163,14 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
           const data: any = d.data();
           setStudentId(d.id);
           const lp = (data && data.learningProgress) || {};
-          const raw = Object.keys(lp).map(k => (k || '').toLowerCase());
+          const raw = Object.keys(lp).map(k => normalizeCategory(k));
           const setCats = new Set<string>(raw);
           setCats.add('spelling');
           setCats.add('writing');
-          const desiredOrder = ['reading', 'math', 'social skills', 'spelling', 'writing'];
-          const ordered = Array.from(setCats).sort((a, b) => {
-            const ai = desiredOrder.indexOf(a);
-            const bi = desiredOrder.indexOf(b);
-            const av = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
-            const bv = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
-            if (av !== bv) return av - bv;
-            return a.localeCompare(b);
-          });
+          const ordered = orderCategories(Array.from(setCats));
           setAvailableCategories(ordered);
           const preselected = Array.isArray(data.focusAreas) && data.focusAreas.length > 0
-            ? (data.focusAreas as string[]).map(s => (s || '').toLowerCase())
+            ? (data.focusAreas as string[]).map(s => normalizeCategory(s))
             : ordered;
           setSelectedCategories(Array.from(new Set(preselected)));
           setHasSavedFocusAreas(Array.isArray(data.focusAreas) && data.focusAreas.length > 0);
@@ -213,15 +226,19 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   };
 
   const toggleCategory = (category: string) => {
-    const key = (category || '').toLowerCase();
+    const key = normalizeCategory(category);
     setSelectedCategories(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
   };
 
   const persistFocusAreas = async () => {
     try {
       if (!studentId) return;
+      if (selectedCategories.length === 0) {
+        Alert.alert('Select Focus', 'Please choose at least one focus area.');
+        return;
+      }
       const ref = doc(db, 'students', studentId);
-      const normalized = selectedCategories.map(s => (s || '').toLowerCase());
+      const normalized = selectedCategories.map(s => normalizeCategory(s));
       // Ensure learningProgress has spelling and writing lesson items
       await setDoc(
         ref,
@@ -242,6 +259,8 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       );
       Alert.alert('Saved', 'Focus areas updated');
       setShowFocusModal(false);
+      setHasSavedFocusAreas(true);
+      setShowFullFocusModal(true);
     } catch (_err) {
       Alert.alert('Save Failed', 'Could not save focus areas. Please try again.');
     }
