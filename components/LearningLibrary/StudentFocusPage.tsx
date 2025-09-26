@@ -45,8 +45,8 @@ const StudentFocusPage: React.FC<StudentFocusPageProps> = ({ student, selectedCa
   const categoriesToShow = selectedCategories;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.headerTitle}>{student?.childName || 'Student'} - Focus View</Text>
+    <ScrollView contentContainerStyle={styles.container} horizontal>
+      <Text style={styles.headerTitle}>{student?.childName || 'Student'}</Text>
 
       {categoriesToShow.length === 0 ? (
         <Text style={styles.emptyText}>No focus areas selected.</Text>
@@ -89,6 +89,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 20,
     backgroundColor: '#F0F4F8',
+      flexDirection: 'row',
   },
   headerTitle: {
     fontSize: 20,

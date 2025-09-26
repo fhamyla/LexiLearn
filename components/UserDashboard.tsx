@@ -308,8 +308,10 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         onRequestClose={() => setShowFullFocusModal(false)}
       >
         <View style={{ flex: 1 }}>
-          <View style={{ padding: 12, backgroundColor: '#4F8EF7' }}>
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>Focus View</Text>
+          <View style={{ padding: 8, backgroundColor: '#4F8EF7', flexDirection: 'row', justifyContent: 'flex-end' }}>
+            <TouchableOpacity onPress={() => setShowFullFocusModal(false)}>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
           </View>
 
           {parentStudent ? (
@@ -320,11 +322,7 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
             </View>
           )}
 
-          <View style={{ padding: 12 }}>
-            <TouchableOpacity style={[styles.bookButton, { backgroundColor: '#6c757d', alignSelf: 'stretch' }]} onPress={() => setShowFullFocusModal(false)}>
-              <Text style={styles.bookButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Removed bottom Close button to keep only top-right Close */}
         </View>
       </Modal>
 

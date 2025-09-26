@@ -977,44 +977,10 @@ const ModeratorDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) =
         onRequestClose={closeFocusView}
       >
         <View style={{ flex: 1 }}>
-          <View style={{ padding: 12, backgroundColor: '#4F8EF7' }}>
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>Focus View</Text>
-          </View>
-
-          {/* In-focus category toggles */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-            <Text style={styles.modalLabel}>Choose Focus Areas</Text>
-            <View style={styles.sectionFilterContainer}>
-              {availableCategories.map((category) => (
-                <TouchableOpacity
-                  key={category}
-                  style={[styles.sectionFilterButton, selectedCategories.includes(category) && styles.sectionFilterButtonActive]}
-                  onPress={() => toggleCategory(category)}
-                >
-                  <Text style={[styles.sectionFilterButtonText, selectedCategories.includes(category) && styles.sectionFilterButtonTextActive]}>
-                    {category}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.bookButton, { backgroundColor: '#6c757d', paddingVertical: 14, paddingHorizontal: 20 }]}
-                onPress={closeFocusView}
-              >
-                <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.bookButton, { backgroundColor: '#28a745', paddingVertical: 14, paddingHorizontal: 20 }]}
-                onPress={async () => {
-                  // Save silently and keep Focus View open
-                  if (!selectedStudent) return;
-                  await persistFocusAreas(selectedStudent.id, selectedCategories);
-                }}
-              >
-                <Text style={[styles.bookButtonText, { fontSize: 16 }]}>Save</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={{ padding: 8, backgroundColor: '#4F8EF7', flexDirection: 'row', justifyContent: 'flex-end' }}>
+            <TouchableOpacity onPress={closeFocusView}>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
           </View>
 
           <StudentFocusPage student={selectedStudent} selectedCategories={selectedCategories} />
