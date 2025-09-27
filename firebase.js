@@ -5,13 +5,13 @@ import { getFunctions, httpsCallable } from '@firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAw0cZVU6mfpIB-eiHhXRYpk0wrT6QU5zU",
-  authDomain: "lexilearn-4ee5b.firebaseapp.com",
-  projectId: "lexilearn-4ee5b",
-  storageBucket: "lexilearn-4ee5b.firebasestorage.app",
-  messagingSenderId: "518977127187",
-  appId: "1:518977127187:web:6106d24680cac2860c90e6",
-  measurementId: "G-HK6C8BB2HD"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID",
+  measurementId: "YOUR_MEASUREMENT_ID"
 };
 
 // Initialize Firebase only once
