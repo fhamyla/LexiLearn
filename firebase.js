@@ -1,32 +1,30 @@
 import { initializeApp } from '@firebase/app';
+import { getAnalytics } from "firebase/analytics";
 import { getAuth, initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, sendPasswordResetEmail } from '@firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs, deleteDoc } from '@firebase/firestore';
 import { getFunctions, httpsCallable } from '@firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
-  measurementId: "YOUR_MEASUREMENT_ID"
+  apiKey: "AIzaSyBEfTZsuXSyTEhOD0OtcBSEr3pfXx5vjXA",
+  authDomain: "lexilearn-42af3.firebaseapp.com",
+  projectId: "lexilearn-42af3",
+  storageBucket: "lexilearn-42af3.firebasestorage.app",
+  messagingSenderId: "506039919423",
+  appId: "1:506039919423:web:41d2be0ddc0db71debe98a",
+  measurementId: "G-YSZFKLTV9H"
 };
 
-// Initialize Firebase only once
-let app;
-try {
-  app = initializeApp(firebaseConfig);
-} catch (error) {
-  // If app already exists, get the existing one
-  if (error.code === 'app/duplicate-app') {
-    app = initializeApp();
-  } else {
-    throw error;
-  }
-}
 
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 // Initialize Auth with React Native persistence so user stays signed in across sessions
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)

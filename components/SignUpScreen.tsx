@@ -3,6 +3,7 @@ import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert 
 import { Picker } from '@react-native-picker/picker';
 import { createUserWithEmail, checkEmailExists, checkEmailVerification, addGuardianChildToStudents } from '../firebase';
 
+
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const nameRegex = /^[A-Za-z\s]*$/;
 

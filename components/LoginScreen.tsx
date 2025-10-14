@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { checkAdminCredentials, signInUser, resendEmailVerification, resetPassword, checkTeacherApproval } from '../firebase';
 import { doc, setDoc } from '@firebase/firestore';
 import { db } from '../firebase';
+import { getAuth } from '@firebase/auth';
 
 const LoginScreen: React.FC<{ 
   onSignUp?: () => void; 

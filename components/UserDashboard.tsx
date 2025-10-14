@@ -3,6 +3,14 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } fr
 import { auth, db } from '../firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import StudentFocusPage from './LearningLibrary/StudentFocusPage';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { Image } from "react-native";
+import { useNavigation } from "@react-navigation/native"; // if you're using React Navigation
+import LearningLibraryScreen from './LearningLibrary/LearningLibraryScreen';
+import { BookOpenIcon, CheckIcon } from 'lucide-react-native';
+
+
+
 
 // Normalizes category names to lowercase and unifies variations of social skills
 const normalizeCategory = (input: string): string => {
@@ -13,7 +21,7 @@ const normalizeCategory = (input: string): string => {
 
 // Orders categories per required priority
 const orderCategories = (categories: string[]): string[] => {
-  const desiredOrder = ['reading', 'math', 'social skills', 'spelling', 'writing'];
+  const desiredOrder = ['Reading', 'Math', 'Social Skills', 'Spelling', 'Writing'];
   const unique = Array.from(new Set(categories.map(normalizeCategory)));
   return unique.sort((a, b) => {
     const ai = desiredOrder.indexOf(a);
@@ -66,6 +74,10 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [hasSavedFocusAreas, setHasSavedFocusAreas] = useState(false);
   const [parentStudent, setParentStudent] = useState<any>(null);
+  const navigation = useNavigation();
+
+  
+
 
   useEffect(() => {
     console.log('UserDashboard mounted, onLogout prop:', !!onLogout);
@@ -108,6 +120,7 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         currentStreak: 5, // TODO: Calculate from actual streak data
       };
 
+    
       const mockActivities: LearningActivity[] = [
         {
           id: '1',
@@ -277,10 +290,18 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         )}
       </View>
 
+<TouchableOpacity 
+  style={styles.bookButton} 
+  onPress={() => navigation.navigate('LearningLibraryScreen' as never)}
+>
+  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <BookOpenIcon color="#fff" size={20} style={{ marginRight: 8 }} />
+    <Text style={styles.bookButtonText}>Learning Library</Text>
+  </View>
+</TouchableOpacity>
 
-      <TouchableOpacity style={styles.bookButton} onPress={handleOpenLibrary}>
-        <Text style={styles.bookButtonText}>Learning Library</Text>
-      </TouchableOpacity>
+      
+
       
       <Modal visible={showFocusModal} animationType="slide" transparent={true} onRequestClose={() => setShowFocusModal(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
@@ -320,31 +341,65 @@ const UserDashboard: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       </Modal>
 
       {/* Full-screen Focus View (auto-open if focus areas saved) */}
-      <Modal
-        visible={showFullFocusModal}
-        animationType="slide"
-        transparent={false}
-        supportedOrientations={["landscape"]}
-        onRequestClose={() => setShowFullFocusModal(false)}
+    <Modal
+  visible={showFullFocusModal}
+  animationType="slide"
+  transparent={false}   // ✅ Full opaque background
+  supportedOrientations={["landscape"]}
+  onShow={async () => {
+    await ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.LANDSCAPE
+    );
+  }}
+  onRequestClose={async () => {
+    await ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.PORTRAIT
+    );
+    setShowFullFocusModal(false);
+  }}
+>
+  <View style={{ flex: 1, backgroundColor: "#fff" }}>
+    {/* Top Bar */}
+    <View
+      style={{
+        padding: 12,
+        backgroundColor: "#4F8EF7",
+        flexDirection: "row",
+        justifyContent: "flex-end",
+      }}
+    >
+      <TouchableOpacity
+        onPress={async () => {
+          await ScreenOrientation.lockAsync(
+            ScreenOrientation.OrientationLock.PORTRAIT
+          );
+          setShowFullFocusModal(false);
+        }}
       >
-        <View style={{ flex: 1 }}>
-          <View style={{ padding: 8, backgroundColor: '#4F8EF7', flexDirection: 'row', justifyContent: 'flex-end' }}>
-            <TouchableOpacity onPress={() => setShowFullFocusModal(false)}>
-              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Close</Text>
-            </TouchableOpacity>
-          </View>
+        <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
+          Close
+        </Text>
+      </TouchableOpacity>
+    </View>
 
-          {parentStudent ? (
-            <StudentFocusPage student={parentStudent} selectedCategories={selectedCategories} />
-          ) : (
-            <View style={{ padding: 16 }}>
-              <Text>Loading...</Text>
-            </View>
-          )}
+    {/* ✅ Fullscreen Content Area */}
+    <View style={{ flex: 1 }}>
+     {parentStudent ? (
+  <View style={{ flex: 1, width: "100%", backgroundColor: "#fff" }}>
+    <StudentFocusPage
+      student={parentStudent}
+      selectedCategories={selectedCategories}
+    />
+  </View>
+) : (
+  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+    <Text>Loading...</Text>
+  </View>
+)}
+    </View>
+  </View>
+</Modal>
 
-          {/* Removed bottom Close button to keep only top-right Close */}
-        </View>
-      </Modal>
 
       {childProgress && (
         <View style={styles.section}>
@@ -806,18 +861,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bookButton: {
-    backgroundColor: '#4F8EF7',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  bookButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  backgroundColor: '#4F8EF7',
+  paddingHorizontal: 20,
+  paddingVertical: 12,
+  borderRadius: 24,
+  alignSelf: 'center',
+  marginBottom: 12,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+bookButtonText: {
+  color: '#fff',
+  fontSize: 14,
+  fontWeight: '600',
+},
   sectionFilterContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -937,6 +995,36 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
+  libraryContainer: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  justifyContent: "center",
+  marginVertical: 20,
+},
+categoryCard: {
+  width: 120,
+  height: 140,
+  backgroundColor: "#fff",
+  margin: 10,
+  borderRadius: 12,
+  justifyContent: "center",
+  alignItems: "center",
+  shadowColor: "#000",
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+  elevation: 3,
+},
+categoryImage: {
+  width: 80,
+  height: 80,
+  resizeMode: "contain",
+  marginBottom: 8,
+},
+categoryText: {
+  fontSize: 14,
+  fontWeight: "600",
+  color: "#333",
+},
 });
 
-export default UserDashboard; 
+export default UserDashboard;
