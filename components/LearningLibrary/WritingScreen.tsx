@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,13 @@ import {
   TouchableOpacity,
   Dimensions,
   FlatList,
+  PanResponder,
 } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
+import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Canvas, Path, Skia } from "@shopify/react-native-skia";
+
 
 const levelImages: { [key: number]: any } = {
   1: require("../../assets/levels/1.png"),
@@ -82,6 +87,28 @@ const levelGroups = [
 
 export default function WritingScreen() {
   const [screen, setScreen] = useState(Dimensions.get("window"));
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
+  const [unlockedLevel, setUnlockedLevel] = useState<number>(1);
+
+  const pathRef = useRef(Skia.Path.Make());
+  const [, update] = useState({}); // force re-render
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        Haptics.selectionAsync();
+        const { locationX, locationY } = evt.nativeEvent;
+        pathRef.current.moveTo(locationX, locationY);
+        update({});
+      },
+      onPanResponderMove: (evt) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        pathRef.current.lineTo(locationX, locationY);
+        update({});
+      },
+    })
+  ).current;
 
   useEffect(() => {
     const lockLandscape = async () => {
@@ -93,9 +120,70 @@ export default function WritingScreen() {
       setScreen(window);
     });
 
+    loadProgress();
     return () => subscription?.remove();
   }, []);
 
+  const loadProgress = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("writingUnlockedLevel");
+      if (stored) setUnlockedLevel(Number(stored));
+    } catch (e) {
+      console.log("Failed to load progress:", e);
+    }
+  };
+
+  const saveProgress = async (level: number) => {
+    try {
+      await AsyncStorage.setItem("writingUnlockedLevel", level.toString());
+    } catch (e) {
+      console.log("Failed to save progress:", e);
+    }
+  };
+
+  const handleBack = () => {
+    setSelectedLevel(null);
+    pathRef.current = Skia.Path.Make();
+  };
+
+  const handleCompleteTracing = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const nextLevel = (selectedLevel ?? 1) + 1;
+    if (nextLevel > unlockedLevel) {
+      setUnlockedLevel(nextLevel);
+      await saveProgress(nextLevel);
+    }
+    handleBack();
+  };
+
+  // Tracing view
+  if (selectedLevel) {
+    const letter = String.fromCharCode(64 + selectedLevel);
+    return (
+      <View style={[styles.page, { backgroundColor: "#FFF8DC" }]}>
+        <Text style={styles.tracingTitle}>Trace the Letter "{letter}"</Text>
+
+        <View
+          {...panResponder.panHandlers}
+          style={styles.canvasContainer}
+        >
+          <Canvas style={styles.canvas}>
+            <Path path={pathRef.current} color="#FF69B4" style="stroke" strokeWidth={10} />
+          </Canvas>
+        </View>
+
+        <TouchableOpacity style={styles.doneButton} onPress={handleCompleteTracing}>
+          <Text style={styles.doneText}>✓ Done</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Levels view
   return (
     <FlatList
       data={levelGroups}
@@ -114,20 +202,24 @@ export default function WritingScreen() {
         >
           <Text style={styles.header}>{item.label} Difficulty</Text>
 
-          {/* Push grid a bit lower */}
           <View style={[styles.gridContainer, { marginTop: 80 }]}>
             {Array.from({ length: item.end - item.start + 1 }, (_, i) => {
               const level = item.start + i;
               const image = levelImages[level];
+              const locked = level > unlockedLevel;
               return (
                 <TouchableOpacity
                   key={level}
+                  disabled={locked}
                   style={[
                     styles.levelButton,
-                    { width: screen.width * 0.10, height: screen.width * 0.10 },
+                    { width: screen.width * 0.1, height: screen.width * 0.1 },
+                    locked && { opacity: 0.3 },
                   ]}
+                  onPress={() => setSelectedLevel(level)}
                 >
                   <Image source={image} style={styles.levelImage} resizeMode="cover" />
+                  {locked && <Text style={styles.lockedText}>🔒</Text>}
                 </TouchableOpacity>
               );
             })}
@@ -142,6 +234,7 @@ const styles = StyleSheet.create({
   page: {
     justifyContent: "center",
     alignItems: "center",
+    flex: 1,
   },
   header: {
     fontSize: 32,
@@ -162,9 +255,61 @@ const styles = StyleSheet.create({
     margin: 10,
     borderRadius: 20,
     overflow: "hidden",
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
   },
   levelImage: {
     width: "100%",
     height: "100%",
+  },
+  lockedText: {
+    position: "absolute",
+    fontSize: 24,
+    color: "#555",
+  },
+  tracingTitle: {
+    fontSize: 40,
+    fontWeight: "bold",
+    color: "#FF69B4",
+    marginBottom: 10,
+    fontFamily: "Comic Sans MS",
+  },
+  canvasContainer: {
+    width: Dimensions.get("window").width * 0.9,
+    height: Dimensions.get("window").height * 0.7,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    borderWidth: 5,
+    borderColor: "#FFD1DC",
+  },
+  canvas: {
+    flex: 1,
+  },
+  doneButton: {
+    position: "absolute",
+    bottom: 100,
+    backgroundColor: "#4CAF50",
+    paddingVertical: 10,
+    paddingHorizontal: 25,
+    borderRadius: 20,
+  },
+  doneText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 24,
+  },
+  backButton: {
+    position: "absolute",
+    bottom: 40,
+    backgroundColor: "#FF69B4",
+    paddingVertical: 10,
+    paddingHorizontal: 25,
+    borderRadius: 20,
+  },
+  backText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 24,
   },
 });

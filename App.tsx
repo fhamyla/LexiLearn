@@ -6,6 +6,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import * as Font from 'expo-font';
 import { View, ActivityIndicator } from 'react-native';
 
+
 import LoginScreen from './components/LoginScreen';
 import SignUpScreen from './components/SignUpScreen';
 import AdminDashboard from './components/AdminDashboard';
