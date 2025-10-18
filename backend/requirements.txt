@@ -1,0 +1,8 @@
+torch
+transformers
+datasets
+soundfile
+pandas
+librosa
+evaluate
+jiwer

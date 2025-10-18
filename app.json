@@ -29,6 +29,7 @@
     "plugins": [
       "expo-font",
       "expo-speech-recognition"
+      
     ],
     "extra": {
       "eas": {
